@@ -7,5 +7,6 @@ import (
 func New() *logrus.Logger {
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
+
 	return logger
 }
