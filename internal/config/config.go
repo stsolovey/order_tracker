@@ -30,6 +30,7 @@ func New(log *logrus.Logger, path string) (*Config, error) {
 	if err != nil {
 		log.WithError(err).Panic("Error loading .env file")
 	}
+
 	postgresHost := os.Getenv("POSTGRES_HOST")
 	postgresPort := os.Getenv("POSTGRES_PORT")
 	postgresUser := os.Getenv("POSTGRES_USER")
