@@ -27,5 +27,4 @@ func main() {
 	if err := storageSystem.Migrate(log); err != nil {
 		log.WithError(err).Panic("Failed to execute migrations")
 	}
-
 }
