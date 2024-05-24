@@ -14,6 +14,7 @@ linters:
   disable:
     - deadcode
     - depguard
+    - execinquery
     - exhaustive
     - exhaustivestruct
     - exhaustruct
@@ -30,7 +31,6 @@ linters:
     - tagalign
     - varcheck
     - wastedassign
-    - execinquery
 
 run:
   timeout: 10m
