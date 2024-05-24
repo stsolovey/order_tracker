@@ -6,6 +6,8 @@ import (
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/logger"
 	"github.com/stsolovey/order_tracker/internal/storage"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // Importing `pgx/v5/stdlib` is necessary for `sql.Open("pgx", s.dsn)`.
 )
 
 func main() {
