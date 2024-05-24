@@ -23,6 +23,7 @@ type Config struct {
 	DatabaseURL string
 	AppPort     string
 	AppHost     string
+	LogLevel    string
 }
 
 func New(log *logrus.Logger, path string) (*Config, error) {
@@ -38,6 +39,7 @@ func New(log *logrus.Logger, path string) (*Config, error) {
 	postgresDB := os.Getenv("POSTGRES_DB")
 	appHost := os.Getenv("APP_HOST")
 	appPort := os.Getenv("APP_PORT")
+	logLevel := "info"
 
 	var dsn string
 
@@ -63,6 +65,7 @@ func New(log *logrus.Logger, path string) (*Config, error) {
 			DatabaseURL: dsn,
 			AppPort:     appPort,
 			AppHost:     appHost,
+			LogLevel:    logLevel,
 		}, nil
 	}
 }
