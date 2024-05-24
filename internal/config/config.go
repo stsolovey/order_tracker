@@ -1,22 +1,11 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/sirupsen/logrus"
-)
-
-var (
-	errMissingHost     = errors.New("postgresHost environment variable is missing")
-	errMissingPort     = errors.New("postgresPort environment variable is missing")
-	errMissingUser     = errors.New("postgresUser environment variable is missing")
-	errMissingPassword = errors.New("postgresPassword environment variable is missing")
-	errMissingDB       = errors.New("postgresDB environment variable is missing")
-	errMissingAppPort  = errors.New("appPort environment variable is missing")
 )
 
 type Config struct {
@@ -26,10 +15,10 @@ type Config struct {
 	LogLevel    string
 }
 
-func New(log *logrus.Logger, path string) (*Config, error) {
+func New(path string) *Config {
 	err := godotenv.Load(path)
 	if err != nil {
-		log.WithError(err).Panic("Error loading .env file")
+		panic("Error loading .env file")
 	}
 
 	postgresHost := os.Getenv("POSTGRES_HOST")
@@ -45,17 +34,17 @@ func New(log *logrus.Logger, path string) (*Config, error) {
 
 	switch {
 	case postgresHost == "":
-		return nil, errMissingHost
+		panic("postgresHost environment variable is missing")
 	case postgresPort == "":
-		return nil, errMissingPort
+		panic("postgresPort environment variable is missing")
 	case postgresUser == "":
-		return nil, errMissingUser
+		panic("postgresUser environment variable is missing")
 	case postgresPassword == "":
-		return nil, errMissingPassword
+		panic("postgresPassword environment variable is missing")
 	case postgresDB == "":
-		return nil, errMissingDB
+		panic("postgresDB environment variable is missing")
 	case appPort == "":
-		return nil, errMissingAppPort
+		panic("appPort environment variable is missing")
 	default:
 		hostPort := net.JoinHostPort(postgresHost, postgresPort)
 		dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
@@ -66,6 +55,6 @@ func New(log *logrus.Logger, path string) (*Config, error) {
 			AppPort:     appPort,
 			AppHost:     appHost,
 			LogLevel:    logLevel,
-		}, nil
+		}
 	}
 }
