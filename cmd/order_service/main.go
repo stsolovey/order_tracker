@@ -10,12 +10,8 @@ import (
 )
 
 func main() {
-	log := logger.New("info")
-
-	cfg, err := config.New(log, "./.env")
-	if err != nil {
-		log.WithError(err).Panic("Failed to initialize config")
-	}
+	cfg := config.New("./.env")
+	log := logger.New(cfg.LogLevel)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
