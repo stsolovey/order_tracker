@@ -1,8 +1,8 @@
 package models
 
 type Delivery struct {
-	DeliveryID int    `json:"delivery_id"`
-	OrderUID   string `json:"order_uid"`
+	DeliveryID int    `json:"deliveryId"`
+	OrderUID   string `json:"orderUid"`
 	Name       string `json:"name"`
 	Phone      string `json:"phone"`
 	Zip        string `json:"zip,omitempty"`
