@@ -32,12 +32,12 @@ func (s *Storage) DB() *pgxpool.Pool {
 func NewStorage(ctx context.Context, dsn string) (*Storage, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("storage.go NewStorage, pgxpool.ParseConfig(...): %w", err)
+		return nil, fmt.Errorf("storage.go.go NewStorage, pgxpool.ParseConfig(...): %w", err)
 	}
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("storage.go NewStorage, pgxpool.NewWithConfig(...): %w", err)
+		return nil, fmt.Errorf("storage.go.go NewStorage, pgxpool.NewWithConfig(...): %w", err)
 	}
 
 	return &Storage{
@@ -54,12 +54,12 @@ func (s *Storage) Migrate(logger *logrus.Logger) error {
 
 	conn, err := sql.Open("pgx", s.dsn)
 	if err != nil {
-		return fmt.Errorf("storage.go Migrate, sql.Open(...) failed: %w", err)
+		return fmt.Errorf("storage.go.go Migrate, sql.Open(...) failed: %w", err)
 	}
 
 	defer func() {
 		if err := conn.Close(); err != nil {
-			logrus.Warnf("storage.go Migrate: conn.Close(): %v", err)
+			logrus.Warnf("storage.go Migrate conn.Close(): %v", err)
 		}
 	}()
 
@@ -70,7 +70,7 @@ func (s *Storage) Migrate(logger *logrus.Logger) error {
 
 	n, err := migrate.Exec(conn, "postgres", migrations, migrate.Up)
 	if err != nil {
-		return fmt.Errorf("migrate.Exec(...) failed: %w", err)
+		return fmt.Errorf("storage.go.go Migrate(...) migrate.Exec(...): %w", err)
 	}
 
 	logger.Infof("Applied %d migrations successfully", n)
