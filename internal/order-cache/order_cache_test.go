@@ -1,6 +1,7 @@
-package cache
+package ordercache
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,7 +11,10 @@ import (
 
 func TestOrderCache_Upsert(t *testing.T) {
 	log := logrus.New()
-	cache := NewOrderCache()
+	cache := New(log)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	order := models.Order{
 		OrderUID:    "testUID123",
@@ -19,8 +23,8 @@ func TestOrderCache_Upsert(t *testing.T) {
 		DateCreated: time.Now(),
 	}
 
-	cache.Upsert(log, order)
-	if got, found := cache.Get(order.OrderUID); !found {
+	cache.Upsert(ctx, order)
+	if got, _ := cache.Get(ctx, order.OrderUID); got == nil {
 		t.Errorf("Upsert() failed to add order, want order UID %s, got nothing", order.OrderUID)
 	} else {
 		if got.OrderUID != order.OrderUID {
@@ -29,32 +33,36 @@ func TestOrderCache_Upsert(t *testing.T) {
 	}
 
 	order.TrackNumber = "TN0987654321"
-	cache.Upsert(log, order)
-	if got, found := cache.Get(order.OrderUID); !found {
-		t.Errorf("Upsert() failed to update order, want track number %s, got nothing", order.TrackNumber)
+	cache.Upsert(ctx, order)
+	if got, err := cache.Get(ctx, order.OrderUID); err != nil {
+		t.Errorf("Upsert() failed to update order, want track number %s, got error: %v", order.TrackNumber, err)
 	} else {
 		if got.TrackNumber != order.TrackNumber {
-			t.Errorf("Upsert() failed to update order, want track number %s, got %s", order.TrackNumber, got.TrackNumber)
+			t.Errorf("Upsert() failed to update order, want track number %s, got %s",
+				order.TrackNumber, got.TrackNumber)
 		}
 	}
 }
 
 func TestOrderCache_Delete(t *testing.T) {
 	log := logrus.New()
-	cache := NewOrderCache()
+	cache := New(log)
 	orderUID := "testUID123"
 
-	cache.Upsert(log, models.Order{OrderUID: orderUID, CustomerID: "Cust123", DateCreated: time.Now()})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	cache.Delete(log, orderUID)
-	if _, found := cache.Get(orderUID); found {
+	cache.Upsert(ctx, models.Order{OrderUID: orderUID, CustomerID: "Cust123", DateCreated: time.Now()})
+
+	cache.Delete(ctx, orderUID)
+	if got, _ := cache.Get(ctx, orderUID); got.OrderUID == orderUID {
 		t.Errorf("Delete() failed, order UID %s should have been deleted but was found", orderUID)
 	}
 }
 
 func TestOrderCache_Get(t *testing.T) {
 	log := logrus.New()
-	cache := NewOrderCache()
+	cache := New(log)
 	orderUID := "testUID456"
 	order := models.Order{
 		OrderUID:    orderUID,
@@ -63,9 +71,12 @@ func TestOrderCache_Get(t *testing.T) {
 		DateCreated: time.Now(),
 	}
 
-	cache.Upsert(log, order)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if got, found := cache.Get(orderUID); !found {
+	cache.Upsert(ctx, order)
+
+	if got, _ := cache.Get(ctx, orderUID); got == nil {
 		t.Errorf("Get() failed, order UID %s should have been retrieved but was not found", orderUID)
 	} else {
 		if got.OrderUID != order.OrderUID {
