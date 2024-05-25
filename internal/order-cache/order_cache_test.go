@@ -55,7 +55,13 @@ func TestOrderCache_Delete(t *testing.T) {
 	cache.Upsert(ctx, models.Order{OrderUID: orderUID, CustomerID: "Cust123", DateCreated: time.Now()})
 
 	cache.Delete(ctx, orderUID)
-	if got, _ := cache.Get(ctx, orderUID); got.OrderUID == orderUID {
+
+	got, err := cache.Get(ctx, orderUID)
+	if err != nil {
+		if err != models.ErrOrderNotFound {
+			t.Errorf("Delete() failed with an unexpected error: %v", err)
+		}
+	} else if got != nil {
 		t.Errorf("Delete() failed, order UID %s should have been deleted but was found", orderUID)
 	}
 }
