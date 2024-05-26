@@ -45,8 +45,8 @@ CREATE TABLE payment (
 );
 
 CREATE TABLE items (
-    item_id SERIAL PRIMARY KEY,
     order_uid TEXT NOT NULL,
+    chrt_id SERIAL PRIMARY KEY,
     track_number TEXT NOT NULL,
     price DECIMAL NOT NULL,
     rid TEXT,
