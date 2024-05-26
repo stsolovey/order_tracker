@@ -28,8 +28,7 @@ func New(path string) *Config {
 	postgresDB := os.Getenv("POSTGRES_DB")
 	appHost := os.Getenv("APP_HOST")
 	appPort := os.Getenv("APP_PORT")
-
-	logLevel := "info"
+	logLevel := os.Getenv("LOG_LEVEL")
 
 	var dsn string
 
