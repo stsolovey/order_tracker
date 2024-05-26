@@ -5,7 +5,12 @@ import (
 	"time"
 )
 
-var ErrOrderNotFound = errors.New("order not found")
+var (
+	ErrOrderNotFound    = errors.New("order not found")
+	ErrDeliveryNotFound = errors.New("delivery not found")
+	ErrPaymentNotFound  = errors.New("payment not found")
+	ErrItemsNotFound    = errors.New("items not found")
+)
 
 type Order struct {
 	OrderUID          string    `json:"orderUid"`
@@ -50,8 +55,8 @@ type Payment struct {
 }
 
 type Item struct {
-	OrderUID    string  `json:"orderUid"`
 	ChrtID      int     `json:"chrtId"`
+	OrderUID    string  `json:"orderUid"`
 	TrackNumber string  `json:"trackNumber"`
 	Price       float64 `json:"price"`
 	RID         string  `json:"rid,omitempty"`
