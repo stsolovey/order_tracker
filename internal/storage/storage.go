@@ -30,7 +30,7 @@ type Storage struct {
 type Querier interface {
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
-	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) // Add this line
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
 }
 
 func (s *Storage) DB() *pgxpool.Pool {
