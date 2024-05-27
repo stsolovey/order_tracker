@@ -3,9 +3,11 @@ package storage_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/logger"
@@ -18,6 +20,7 @@ type StorageSuite struct {
 	storage *storage.Storage
 	ctx     context.Context
 	cancel  context.CancelFunc
+	log     *logrus.Logger
 }
 
 func (s *StorageSuite) SetupSuite() {
@@ -32,38 +35,36 @@ func (s *StorageSuite) SetupSuite() {
 	s.storage = stor
 	s.ctx = ctx
 	s.cancel = cancel
+	s.log = log
 
-	// err = s.cleanDatabase()
-	// if err != nil {
-	// 	s.T().Fatal(err)
-	// }
+	err = s.truncateTables()
+	if err != nil {
+		s.T().Fatal(err)
+	}
 }
 
 func (s *StorageSuite) TearDownSuite() {
 	s.cancel()
-	// err := s.cleanDatabase()
-	// if err != nil {
-	// 	s.T().Fatal(err)
-	// }
+	err := s.truncateTables()
+	if err != nil {
+		s.T().Fatal(err)
+	}
 }
 
-/*
-func (s *StorageSuite) cleanDatabase() error {
-	queries := []string{
-		"DELETE FROM items;",
-		"DELETE FROM payment;",
-		"DELETE FROM delivery;",
-		"DELETE FROM orders;",
-	}
+func (s *StorageSuite) truncateTables() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	for _, query := range queries {
-		if _, err := s.storage.DB().Exec(context.Background(), query); err != nil {
-			return err
+	tables := []string{"items", "payment", "delivery", "orders"}
+	for _, table := range tables {
+		_, err := s.storage.DB().Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table))
+		if err != nil {
+			return fmt.Errorf("Failed to truncate table: %s; Error: %w", table, err)
 		}
 	}
+	s.log.Infof("Tables truncated successfully")
 	return nil
 }
-*/
 
 func TestStorageSuite(t *testing.T) {
 	suite.Run(t, new(StorageSuite))
