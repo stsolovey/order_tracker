@@ -67,6 +67,153 @@ func TestStorageSuite(t *testing.T) {
 	suite.Run(t, new(StorageSuite))
 }
 
+func (s *StorageSuite) TestUpsert() {
+	order := &models.Order{
+		OrderUID:        "uniqueOrderID123",
+		TrackNumber:     "TN1234567890",
+		CustomerID:      "Cust123",
+		DateCreated:     time.Now(),
+		DeliveryService: "TestService",
+		Locale:          "en",
+		Delivery: models.Delivery{
+			OrderUID: "uniqueOrderID123",
+			Name:     "John Doe",
+			Phone:    "+1234567890",
+			City:     "TestCity",
+			Address:  "123 Test St",
+		},
+		Payment: models.Payment{
+			OrderUID:    "uniqueOrderID123",
+			Transaction: "TX1234567890",
+			Currency:    "USD",
+			Provider:    "TestProvider",
+			Amount:      150.00,
+			PaymentDT:   time.Now(),
+		},
+		Items: []models.Item{
+			{
+				ChrtID:      1,
+				OrderUID:    "uniqueOrderID123",
+				TrackNumber: "TN1234567890",
+				Price:       100.00,
+				Name:        "Test Item 1",
+				NMID:        1001,
+				Brand:       "TestBrand",
+				Status:      1,
+			},
+			{
+				ChrtID:      2,
+				OrderUID:    "uniqueOrderID123",
+				TrackNumber: "TN1234567890",
+				Price:       50.00,
+				Name:        "Test Item 2",
+				NMID:        2002,
+				Brand:       "BrandTest",
+				Status:      2,
+			},
+		},
+	}
+
+	s.Run("Successful Upsert", func() {
+		returnedOrder, err := s.storage.Upsert(s.ctx, order)
+		s.Require().NoError(err, "Upsert should complete without error")
+		s.Require().NotNil(returnedOrder, "Returned order should not be nil")
+
+		s.Require().Equal(order.OrderUID, returnedOrder.OrderUID, "Order UID should match")
+		s.Require().Equal(order.TrackNumber, returnedOrder.TrackNumber, "Track number should match")
+
+		s.Require().Equal(order.Delivery.Name, returnedOrder.Delivery.Name, "Delivery name should match")
+
+		s.Require().Equal(order.Payment.Transaction, returnedOrder.Payment.Transaction, "Payment transaction should match")
+
+		s.Require().Len(returnedOrder.Items, 2, "Should have two items")
+		s.Require().Equal(order.Items[0].ChrtID, returnedOrder.Items[0].ChrtID, "Item ChrtID should match")
+	})
+
+	_, err := s.storage.Upsert(s.ctx, order)
+	s.Require().NoError(err, "Initial upsert for setup should not fail")
+
+	/*
+		s.Run("Transaction Rollback on Error", func() {
+			faultyOrder := *order
+			faultyOrder.CustomerID = ""
+			_, err := s.storage.Upsert(s.ctx, &faultyOrder)
+			s.Require().Error(err, "Upsert should fail due to NULL CustomerID")
+
+			retrievedOrder, err := s.storage.GetOrder(s.ctx, s.storage.DB(), order.OrderUID)
+			s.Require().NoError(err, "Retrieving the order should not fail")
+			s.Require().Equal("TN1234567890", retrievedOrder.TrackNumber,
+			 "Track number should be unchanged, (`cuz of rollback)")
+		})
+	*/
+}
+
+func (s *StorageSuite) TestGet() {
+	order := &models.Order{
+		OrderUID:        "uniqueOrderID123",
+		TrackNumber:     "TN1234567890",
+		CustomerID:      "Cust123",
+		DateCreated:     time.Now(),
+		DeliveryService: "TestService",
+		Locale:          "en",
+		Delivery: models.Delivery{
+			OrderUID: "uniqueOrderID123",
+			Name:     "John Doe",
+			Phone:    "+1234567890",
+			City:     "TestCity",
+			Address:  "123 Test St",
+		},
+		Payment: models.Payment{
+			OrderUID:    "uniqueOrderID123",
+			Transaction: "TX1234567890",
+			Currency:    "USD",
+			Provider:    "TestProvider",
+			Amount:      150.00,
+			PaymentDT:   time.Now(),
+		},
+		Items: []models.Item{
+			{
+				OrderUID:    "uniqueOrderID123",
+				ChrtID:      1,
+				TrackNumber: "TN1234567890",
+				Price:       100.00,
+				Name:        "Test Item 1",
+				NMID:        1001,
+				Brand:       "TestBrand",
+				Status:      1,
+			},
+			{
+				OrderUID:    "uniqueOrderID123",
+				ChrtID:      2,
+				TrackNumber: "TN1234567890",
+				Price:       50.00,
+				Name:        "Test Item 2",
+				NMID:        2002,
+				Brand:       "BrandTest",
+				Status:      2,
+			},
+		},
+	}
+
+	_, err := s.storage.Upsert(s.ctx, order)
+	s.Require().NoError(err, "Failed to upsert order for test setup")
+
+	retrievedOrder, err := s.storage.Get(s.ctx, order.OrderUID)
+
+	s.Run("Retrieve the order using the Get method", func() {
+		s.Require().NoError(err, "Failed to get order")
+		s.Require().NotNil(retrievedOrder, "Retrieved order should not be nil")
+	})
+
+	s.Run("All fields are correctly retrieved", func() {
+		s.Require().Equal(order.OrderUID, retrievedOrder.OrderUID, "Order UID should match")
+		s.Require().Equal(order.TrackNumber, retrievedOrder.TrackNumber, "Track number should match")
+		s.Require().Equal(order.Delivery.Name, retrievedOrder.Delivery.Name, "Delivery name should match")
+		s.Require().Equal(order.Payment.Transaction, retrievedOrder.Payment.Transaction, "Payment transaction should match")
+		s.Require().Equal(len(order.Items), len(retrievedOrder.Items), "Number of items should match")
+	})
+}
+
 func (s *StorageSuite) TestUpsertOrder() {
 	order := &models.Order{
 		OrderUID:          "testUID123",
