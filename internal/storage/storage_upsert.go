@@ -38,7 +38,7 @@ func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Orde
 		return nil, fmt.Errorf("Storage Upsert payment: %w", err)
 	}
 
-	if _, err := s.UpsertItems(ctx, tx, &order.Items); err != nil {
+	if _, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
 		if err := tx.Rollback(ctx); err != nil {
 			return nil, fmt.Errorf("Storage Upsert items tx.Rollback(ctx): %w", err)
 		}
@@ -54,47 +54,41 @@ func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Orde
 }
 
 func (s *Storage) UpsertOrder(ctx context.Context, q Querier, order *models.Order) (*models.Order, error) {
-	existsQuery := `SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1);`
-
-	var exists bool
-
-	if err := q.QueryRow(ctx, existsQuery, order.OrderUID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("Storage UpsertOrder check existence: %w", err)
-	}
-
-	var query string
-
-	if exists {
-		query = `
-            UPDATE orders
-            SET track_number = $2, entry = $3, locale = $4, internal_signature = $5, 
-                customer_id = $6, delivery_service = $7, shardkey = $8, sm_id = $9, 
-                date_created = $10, oof_shard = $11
-            WHERE order_uid = $1
-            RETURNING order_uid, track_number, entry, locale, internal_signature, customer_id, 
-                      delivery_service, shardkey, sm_id, date_created, oof_shard;
-        `
-	} else {
-		query = `
-            INSERT INTO orders (order_uid, track_number, entry, locale, internal_signature, 
-                customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING order_uid, track_number, entry, locale, internal_signature, customer_id, 
-                      delivery_service, shardkey, sm_id, date_created, oof_shard;
-        `
-	}
+	query := `
+		INSERT INTO orders (
+			order_uid, track_number, entry, locale, internal_signature, customer_id,
+			delivery_service, shardkey, sm_id, date_created, oof_shard
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+		) ON CONFLICT (order_uid) DO UPDATE SET
+			track_number = EXCLUDED.track_number,
+			entry = EXCLUDED.entry,
+			locale = EXCLUDED.locale,
+			internal_signature = EXCLUDED.internal_signature,
+			customer_id = EXCLUDED.customer_id,
+			delivery_service = EXCLUDED.delivery_service,
+			shardkey = EXCLUDED.shardkey,
+			sm_id = EXCLUDED.sm_id,
+			date_created = EXCLUDED.date_created,
+			oof_shard = EXCLUDED.oof_shard
+		RETURNING 
+			order_uid, track_number, entry, locale, internal_signature, customer_id,
+			delivery_service, shardkey, sm_id, date_created, oof_shard;
+	`
 
 	var returningOrder models.Order
 
-	err := q.QueryRow(ctx, query, order.OrderUID, order.TrackNumber, order.Entry, order.Locale,
-		order.InternalSignature, order.CustomerID, order.DeliveryService, order.Shardkey, order.SMID,
-		order.DateCreated, order.OOFShard).Scan(
+	err := q.QueryRow(ctx, query,
+		order.OrderUID, order.TrackNumber, order.Entry, order.Locale,
+		order.InternalSignature, order.CustomerID, order.DeliveryService, order.Shardkey,
+		order.SMID, order.DateCreated, order.OOFShard,
+	).Scan(
 		&returningOrder.OrderUID, &returningOrder.TrackNumber, &returningOrder.Entry, &returningOrder.Locale,
 		&returningOrder.InternalSignature, &returningOrder.CustomerID, &returningOrder.DeliveryService,
 		&returningOrder.Shardkey, &returningOrder.SMID, &returningOrder.DateCreated, &returningOrder.OOFShard,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Storage UpsertOrder q.Exec(...): %w", err)
+		return nil, fmt.Errorf("Storage UpsertOrder q.QueryRow(...): %w", err)
 	}
 
 	return &returningOrder, nil
@@ -190,12 +184,12 @@ func (s *Storage) UpsertPayment(ctx context.Context, q Querier, payment *models.
 	return &returnedPayment, nil
 }
 
-func (s *Storage) UpsertItems(ctx context.Context, q Querier, items *[]models.Item) (*[]models.Item, error) {
-	if len(*items) == 0 {
-		return items, nil
+func (s *Storage) UpsertItems(ctx context.Context, q Querier, items []models.Item) (*[]models.Item, error) {
+	if len(items) == 0 {
+		return &items, nil
 	}
 
-	orderUID := (*items)[0].OrderUID
+	orderUID := (items)[0].OrderUID
 
 	deleteQuery := `DELETE FROM items WHERE order_uid = $1;`
 
@@ -205,7 +199,7 @@ func (s *Storage) UpsertItems(ctx context.Context, q Querier, items *[]models.It
 
 	var valueStrings []string
 	var valueArgs []interface{}
-	for i, item := range *items {
+	for i, item := range items {
 		valueStrings = append(valueStrings,
 			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
 				i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6, i*11+7, i*11+8, i*11+9, i*11+10, i*11+11))
