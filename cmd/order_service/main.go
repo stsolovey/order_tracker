@@ -20,17 +20,17 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
-	storageSystem, err := storage.NewStorage(ctx, cfg.DatabaseURL)
+	db, err := storage.NewStorage(ctx, log, cfg.DatabaseURL)
 	if err != nil {
 		log.WithError(err).Panic("Failed to initialize storage")
 	}
 
-	if err := storageSystem.Migrate(log); err != nil {
+	if err := db.Migrate(); err != nil {
 		log.WithError(err).Panic("Failed to execute migrations")
 	}
 
 	orderCache := ordercache.New(log)
-	app := service.New(log, orderCache, storageSystem)
+	app := service.New(log, orderCache, db)
 
 	if err := app.Init(ctx); err != nil {
 		log.WithError(err).Panic("Error app initialisation")
