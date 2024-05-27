@@ -14,6 +14,11 @@ run_server:
 up-deps:
 	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml up -d
 
+# Запуск окружения с паузой
+up-deps-ci:
+	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml up -d
+	sleep 10
+
 # Остановка окружения
 down-deps:
 	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml down
@@ -47,6 +52,13 @@ down: stop-app down-deps
 
 # Тестирование: старт окружения и приложения, тест, стоп
 test: up-deps run-app-background
+	sleep 1 # Даём приложению время для запуска
+	go test ./... -count=1; result=$$?; \
+	make stop-app; \
+	make down-deps; \
+	exit $$result
+
+test-ci: up-deps-ci run-app-background
 	sleep 1 # Даём приложению время для запуска
 	go test ./... -count=1; result=$$?; \
 	make stop-app; \

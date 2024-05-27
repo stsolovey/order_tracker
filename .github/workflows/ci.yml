@@ -28,4 +28,4 @@ jobs:
           args: --config .golangci.yml
 
       - name: Run Tests
-        run: make test
+        run: make test-ci
