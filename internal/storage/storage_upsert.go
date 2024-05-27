@@ -11,43 +11,33 @@ import (
 func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Order, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Storage Upsert starting transaction: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert starting transaction: %w", err)
 	}
 
-	if _, err := s.UpsertOrder(ctx, tx, order); err != nil {
+	defer func() {
 		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert order tx.Rollback(ctx): %w", err)
+			s.log.Warn("storage.go Upsert order tx.Rollback(ctx): %w", err)
 		}
+	}()
 
-		return nil, fmt.Errorf("Storage Upsert order: %w", err)
+	if _, err := s.UpsertOrder(ctx, tx, order); err != nil {
+		return nil, fmt.Errorf("storage.go Upsert order: %w", err)
 	}
 
 	if _, err := s.UpsertDelivery(ctx, tx, &order.Delivery); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert delivery tx.Rollback(ctx): %w", err)
-		}
-
-		return nil, fmt.Errorf("Storage Upsert delivery: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert delivery: %w", err)
 	}
 
 	if _, err := s.UpsertPayment(ctx, tx, &order.Payment); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert payment tx.Rollback(ctx): %w", err)
-		}
-
-		return nil, fmt.Errorf("Storage Upsert payment: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert payment: %w", err)
 	}
 
 	if _, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert items tx.Rollback(ctx): %w", err)
-		}
-
-		return nil, fmt.Errorf("Storage Upsert items: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert items: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("Storage Upsert committing transaction: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert committing transaction: %w", err)
 	}
 
 	return order, nil
@@ -88,97 +78,84 @@ func (s *Storage) UpsertOrder(ctx context.Context, q Querier, order *models.Orde
 		&returningOrder.Shardkey, &returningOrder.SMID, &returningOrder.DateCreated, &returningOrder.OOFShard,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Storage UpsertOrder q.QueryRow(...): %w", err)
+		return nil, fmt.Errorf("storage.go UpsertOrder q.QueryRow(...): %w", err)
 	}
 
 	return &returningOrder, nil
 }
 
 func (s *Storage) UpsertDelivery(ctx context.Context, q Querier, delivery *models.Delivery) (*models.Delivery, error) {
-	existsQuery := `SELECT EXISTS(SELECT 1 FROM delivery WHERE order_uid = $1);`
-
-	var exists bool
-
-	if err := q.QueryRow(ctx, existsQuery, delivery.OrderUID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("Storage UpsertDelivery check existence: %w", err)
-	}
-
-	var query string
-
-	if exists {
-		query = `
-            UPDATE delivery
-            SET name = $2, phone = $3, zip = $4, city = $5, address = $6, 
-                region = $7, email = $8
-            WHERE order_uid = $1
-            RETURNING order_uid, name, phone, zip, city, address, region, email;
-        `
-	} else {
-		query = `
-            INSERT INTO delivery (order_uid, name, phone, zip, city, address, region, email)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING order_uid, name, phone, zip, city, address, region, email;
-        `
-	}
+	query := `
+		INSERT INTO delivery (
+			order_uid, name, phone, zip, city, address, region, email
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8
+		) ON CONFLICT (order_uid) DO UPDATE SET
+			name = EXCLUDED.name,
+			phone = EXCLUDED.phone,
+			zip = EXCLUDED.zip,
+			city = EXCLUDED.city,
+			address = EXCLUDED.address,
+			region = EXCLUDED.region,
+			email = EXCLUDED.email
+		RETURNING 
+			order_uid, name, phone, zip, city, address, region, email;
+	`
 
 	var returningDelivery models.Delivery
 
-	err := q.QueryRow(ctx, query, delivery.OrderUID, delivery.Name, delivery.Phone,
-		delivery.Zip, delivery.City, delivery.Address, delivery.Region, delivery.Email).Scan(
+	err := q.QueryRow(ctx, query,
+		delivery.OrderUID, delivery.Name, delivery.Phone, delivery.Zip,
+		delivery.City, delivery.Address, delivery.Region, delivery.Email,
+	).Scan(
 		&returningDelivery.OrderUID, &returningDelivery.Name, &returningDelivery.Phone,
 		&returningDelivery.Zip, &returningDelivery.City, &returningDelivery.Address,
 		&returningDelivery.Region, &returningDelivery.Email,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Storage UpsertDelivery q.QueryRow(...): %w", err)
+		return nil, fmt.Errorf("storage.go UpsertDelivery q.QueryRow(...): %w", err)
 	}
 
 	return &returningDelivery, nil
 }
 
 func (s *Storage) UpsertPayment(ctx context.Context, q Querier, payment *models.Payment) (*models.Payment, error) {
-	existsQuery := `SELECT EXISTS(SELECT 1 FROM payment WHERE order_uid = $1);`
-
-	var exists bool
-
-	if err := q.QueryRow(ctx, existsQuery, payment.OrderUID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("Storage UpsertPayment check existence: %w", err)
-	}
-
-	var query string
-
-	if exists {
-		query = `
-            UPDATE payment
-            SET transaction = $2, request_id = $3, currency = $4, provider = $5, 
-                amount = $6, payment_dt = $7, bank = $8, delivery_cost = $9, 
-                goods_total = $10, custom_fee = $11
-            WHERE order_uid = $1
-            RETURNING order_uid, transaction, request_id, currency, provider, amount, payment_dt,
-                      bank, delivery_cost, goods_total, custom_fee;
-        `
-	} else {
-		query = `
-            INSERT INTO payment (order_uid, transaction, request_id, currency, provider, 
-                amount, payment_dt, bank, delivery_cost, goods_total, custom_fee)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING order_uid, transaction, request_id, currency, provider, amount, payment_dt,
-                      bank, delivery_cost, goods_total, custom_fee;
-        `
-	}
+	query := `
+		INSERT INTO payment (
+			order_uid, transaction, request_id, currency, provider, amount, payment_dt,
+			bank, delivery_cost, goods_total, custom_fee
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+		) ON CONFLICT (order_uid) DO UPDATE SET
+			transaction = EXCLUDED.transaction,
+			request_id = EXCLUDED.request_id,
+			currency = EXCLUDED.currency,
+			provider = EXCLUDED.provider,
+			amount = EXCLUDED.amount,
+			payment_dt = EXCLUDED.payment_dt,
+			bank = EXCLUDED.bank,
+			delivery_cost = EXCLUDED.delivery_cost,
+			goods_total = EXCLUDED.goods_total,
+			custom_fee = EXCLUDED.custom_fee
+		RETURNING 
+			order_uid, transaction, request_id, currency, provider, amount, payment_dt,
+			bank, delivery_cost, goods_total, custom_fee;
+	`
 
 	var returnedPayment models.Payment
 
-	err := q.QueryRow(ctx, query, payment.OrderUID, payment.Transaction, payment.RequestID,
-		payment.Currency, payment.Provider, payment.Amount, payment.PaymentDT, payment.Bank,
-		payment.DeliveryCost, payment.GoodsTotal, payment.CustomFee).Scan(
+	err := q.QueryRow(ctx, query,
+		payment.OrderUID, payment.Transaction, payment.RequestID, payment.Currency, payment.Provider,
+		payment.Amount, payment.PaymentDT, payment.Bank, payment.DeliveryCost, payment.GoodsTotal,
+		payment.CustomFee,
+	).Scan(
 		&returnedPayment.OrderUID, &returnedPayment.Transaction, &returnedPayment.RequestID,
 		&returnedPayment.Currency, &returnedPayment.Provider, &returnedPayment.Amount,
 		&returnedPayment.PaymentDT, &returnedPayment.Bank, &returnedPayment.DeliveryCost,
 		&returnedPayment.GoodsTotal, &returnedPayment.CustomFee,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Storage UpsertPayment query execution: %w", err)
+		return nil, fmt.Errorf("storage.go UpsertPayment q.QueryRow(...): %w", err)
 	}
 
 	return &returnedPayment, nil
@@ -189,20 +166,14 @@ func (s *Storage) UpsertItems(ctx context.Context, q Querier, items []models.Ite
 		return &items, nil
 	}
 
-	orderUID := (items)[0].OrderUID
+	valueStrings := make([]string, 0, len(items))
+	valueArgs := make([]any, 0, len(items)*11) //nolint:mnd
 
-	deleteQuery := `DELETE FROM items WHERE order_uid = $1;`
-
-	if _, err := q.Exec(ctx, deleteQuery, orderUID); err != nil {
-		return nil, fmt.Errorf("Storage UpsertItems delete existing: %w", err)
-	}
-
-	var valueStrings []string
-	var valueArgs []interface{}
 	for i, item := range items {
 		valueStrings = append(valueStrings,
 			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
-				i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6, i*11+7, i*11+8, i*11+9, i*11+10, i*11+11))
+				i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6, i*11+7, i*11+8, i*11+9, i*11+10, i*11+11)) //nolint:mnd
+
 		valueArgs = append(valueArgs, item.OrderUID, item.TrackNumber, item.Price, item.RID, item.Name,
 			item.Sale, item.Size, item.TotalPrice, item.NMID, item.Brand, item.Status)
 	}
@@ -210,29 +181,43 @@ func (s *Storage) UpsertItems(ctx context.Context, q Querier, items []models.Ite
 	insertQuery := fmt.Sprintf(`
         INSERT INTO items (order_uid, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status)
         VALUES %s
+        ON CONFLICT (chrt_id) DO UPDATE SET
+            track_number = EXCLUDED.track_number,
+            price = EXCLUDED.price,
+            rid = EXCLUDED.rid,
+            name = EXCLUDED.name,
+            sale = EXCLUDED.sale,
+            size = EXCLUDED.size,
+            total_price = EXCLUDED.total_price,
+            nm_id = EXCLUDED.nm_id,
+            brand = EXCLUDED.brand,
+            status = EXCLUDED.status
         RETURNING chrt_id, order_uid, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status;
     `, strings.Join(valueStrings, ","))
 
 	rows, err := q.Query(ctx, insertQuery, valueArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("Storage UpsertItems batch insert: %w", err)
+		return nil, fmt.Errorf("storage.go UpsertItems batch insert: %w", err)
 	}
+
 	defer rows.Close()
 
 	var returnedItems []models.Item
+
 	for rows.Next() {
 		var returnedItem models.Item
 		if err := rows.Scan(&returnedItem.ChrtID, &returnedItem.OrderUID, &returnedItem.TrackNumber,
 			&returnedItem.Price, &returnedItem.RID, &returnedItem.Name, &returnedItem.Sale,
 			&returnedItem.Size, &returnedItem.TotalPrice, &returnedItem.NMID, &returnedItem.Brand,
 			&returnedItem.Status); err != nil {
-			return nil, fmt.Errorf("Storage UpsertItems retrieving result: %w", err)
+			return nil, fmt.Errorf("storage.go UpsertItems retrieving result: %w", err)
 		}
+
 		returnedItems = append(returnedItems, returnedItem)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("Storage UpsertItems processing rows: %w", err)
+		return nil, fmt.Errorf("storage.go UpsertItems processing rows: %w", err)
 	}
 
 	return &returnedItems, nil
