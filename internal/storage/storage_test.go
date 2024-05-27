@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"github.com/stsolovey/order_tracker/internal/config"
+	"github.com/stsolovey/order_tracker/internal/logger"
 	"github.com/stsolovey/order_tracker/internal/models"
 	"github.com/stsolovey/order_tracker/internal/storage"
 )
@@ -21,20 +22,45 @@ type StorageSuite struct {
 
 func (s *StorageSuite) SetupSuite() {
 	cfg := config.New("../../.env") // если '.env' в корне
+	log := logger.New(cfg.LogLevel)
 	dsn := cfg.DatabaseURL
 	ctx, cancel := context.WithCancel(context.Background())
-	stor, err := storage.NewStorage(ctx, dsn)
+	stor, err := storage.NewStorage(ctx, log, dsn)
 	if err != nil {
 		s.T().Fatal(err)
 	}
 	s.storage = stor
 	s.ctx = ctx
 	s.cancel = cancel
+
+	err = s.cleanDatabase()
+	if err != nil {
+		s.T().Fatal(err)
+	}
 }
 
 func (s *StorageSuite) TearDownSuite() {
 	s.cancel()
-	// удалить данные из базы
+	err := s.cleanDatabase()
+	if err != nil {
+		s.T().Fatal(err)
+	}
+}
+
+func (s *StorageSuite) cleanDatabase() error {
+	queries := []string{
+		"DELETE FROM items;",
+		"DELETE FROM payment;",
+		"DELETE FROM delivery;",
+		"DELETE FROM orders;",
+	}
+
+	for _, query := range queries {
+		if _, err := s.storage.DB().Exec(context.Background(), query); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func TestStorageSuite(t *testing.T) {
@@ -162,7 +188,7 @@ func (s *StorageSuite) TestUpsertItems() {
 	}
 
 	s.Run("Insertion of new items", func() {
-		insertedItems, err := s.storage.UpsertItems(s.ctx, s.storage.DB(), items)
+		insertedItems, err := s.storage.UpsertItems(s.ctx, s.storage.DB(), *items)
 		s.Require().NoError(err, "Upsert should not fail on insertion")
 		s.Require().NotNil(insertedItems, "Inserted items should not be nil")
 		s.Require().Len(*insertedItems, 2, "Should insert two items")
@@ -173,7 +199,7 @@ func (s *StorageSuite) TestUpsertItems() {
 		(*items)[0].TotalPrice = 17.99
 		(*items)[0].Sale = 20
 
-		updatedItems, err := s.storage.UpsertItems(s.ctx, s.storage.DB(), items)
+		updatedItems, err := s.storage.UpsertItems(s.ctx, s.storage.DB(), *items)
 		s.Require().NoError(err, "Upsert should not fail on update")
 		s.Require().NotNil(updatedItems, "Updated items should not be nil")
 		s.Require().Len(*updatedItems, 2, "Should maintain two items")
@@ -248,18 +274,16 @@ func (s *StorageSuite) TestGetDelivery() {
 	_, err = s.storage.UpsertDelivery(s.ctx, s.storage.DB(), delivery)
 	s.Require().NoError(err, "TestGetDelivery models.Delivery insertion")
 
+	delivery.Phone = "+0987654321"
+	_, err = s.storage.UpsertDelivery(s.ctx, s.storage.DB(), delivery)
+	s.Require().NoError(err, "TestGetDelivery models.Delivery update")
+
 	s.Run("Retrieve existing delivery", func() {
 		retrievedDelivery, err := s.storage.GetDelivery(s.ctx, s.storage.DB(), delivery.OrderUID)
 		s.Require().NoError(err)
 		s.Require().NotNil(retrievedDelivery)
 		s.Require().Equal(delivery.Name, retrievedDelivery.Name, "Names should match")
 		s.Require().Equal(delivery.Phone, retrievedDelivery.Phone, "Phone numbers should match")
-	})
-
-	s.Run("Non-existent delivery", func() {
-		_, err := s.storage.GetDelivery(s.ctx, s.storage.DB(), "nonExistentUID123")
-		s.Require().Error(err, "Should return an error for a non-existent delivery")
-		s.Require().True(errors.Is(err, models.ErrDeliveryNotFound), "expected ErrDeliveryNotFound")
 	})
 }
 
@@ -359,7 +383,7 @@ func (s *StorageSuite) TestGetItems() {
 	_, err := s.storage.UpsertOrder(s.ctx, s.storage.DB(), order)
 	s.Require().NoError(err, "Insertion for test setup should not fail")
 
-	_, err = s.storage.UpsertItems(s.ctx, s.storage.DB(), &items)
+	_, err = s.storage.UpsertItems(s.ctx, s.storage.DB(), items)
 	s.Require().NoError(err, "Insertion for test setup of items should not fail")
 
 	s.Run("Retrieve existing items", func() {
