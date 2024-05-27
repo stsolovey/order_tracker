@@ -11,46 +11,50 @@ import (
 func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Order, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Storage Upsert starting transaction: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert starting transaction: %w", err)
 	}
 
-	if _, err := s.UpsertOrder(ctx, tx, order); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert order tx.Rollback(ctx): %w", err)
-		}
+	shouldRollback := true
 
-		return nil, fmt.Errorf("Storage Upsert order: %w", err)
+	defer func() {
+		if shouldRollback {
+			if err := tx.Rollback(ctx); err != nil {
+				s.log.Warn("Failed to rollback transaction", err)
+			}
+		}
+	}()
+
+	var orderReturning *models.Order
+
+	if orderReturning, err = s.UpsertOrder(ctx, tx, order); err != nil {
+		return nil, fmt.Errorf("storage.go Upsert order: %w", err)
 	}
 
-	if _, err := s.UpsertDelivery(ctx, tx, &order.Delivery); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert delivery tx.Rollback(ctx): %w", err)
-		}
+	if delivery, err := s.UpsertDelivery(ctx, tx, &order.Delivery); err != nil {
+		orderReturning.Delivery = *delivery
 
-		return nil, fmt.Errorf("Storage Upsert delivery: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert delivery: %w", err)
 	}
 
-	if _, err := s.UpsertPayment(ctx, tx, &order.Payment); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert payment tx.Rollback(ctx): %w", err)
-		}
+	if payment, err := s.UpsertPayment(ctx, tx, &order.Payment); err != nil {
+		orderReturning.Payment = *payment
 
-		return nil, fmt.Errorf("Storage Upsert payment: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert payment: %w", err)
 	}
 
-	if _, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage Upsert items tx.Rollback(ctx): %w", err)
-		}
+	if items, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
+		orderReturning.Items = *items
 
-		return nil, fmt.Errorf("Storage Upsert items: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert items: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("Storage Upsert committing transaction: %w", err)
+		return nil, fmt.Errorf("storage.go Upsert committing transaction: %w", err)
 	}
 
-	return order, nil
+	shouldRollback = false
+
+	return orderReturning, nil
 }
 
 func (s *Storage) UpsertOrder(ctx context.Context, q Querier, order *models.Order) (*models.Order, error) {
@@ -189,7 +193,8 @@ func (s *Storage) UpsertItems(ctx context.Context, q Querier, items []models.Ite
 	}
 
 	insertQuery := fmt.Sprintf(`
-        INSERT INTO items (order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status)
+        INSERT INTO items (order_uid, chrt_id, track_number, price, 
+			rid, name, sale, size, total_price, nm_id, brand, status)
         VALUES %s
         ON CONFLICT (chrt_id) DO UPDATE SET
             track_number = EXCLUDED.track_number,
