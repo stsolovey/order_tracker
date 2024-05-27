@@ -11,58 +11,47 @@ import (
 )
 
 func (s *Storage) Get(ctx context.Context, orderUID string) (*models.Order, error) {
-	tx, err := s.db.Begin(ctx)
+	query := `
+	SELECT
+		o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature, o.customer_id, 
+		o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+		d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+		p.transaction, p.request_id, p.currency, p.provider, p.amount, p.payment_dt,
+		p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
+		json_agg(i.*) as items
+	FROM
+		orders o
+	JOIN
+		delivery d ON o.order_uid = d.order_uid
+	JOIN
+		payment p ON o.order_uid = p.order_uid
+	LEFT JOIN
+		items i ON o.order_uid = i.order_uid
+	WHERE
+		o.order_uid = $1
+	GROUP BY
+		o.order_uid, d.delivery_id, p.payment_id
+	`
+	row := s.db.QueryRow(ctx, query, orderUID)
+
+	var order models.Order
+
+	err := row.Scan(
+		&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale,
+		&order.InternalSignature, &order.CustomerID, &order.DeliveryService,
+		&order.Shardkey, &order.SMID, &order.DateCreated, &order.OOFShard,
+		&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip,
+		&order.Delivery.City, &order.Delivery.Address, &order.Delivery.Region, &order.Delivery.Email,
+		&order.Payment.Transaction, &order.Payment.RequestID, &order.Payment.Currency,
+		&order.Payment.Provider, &order.Payment.Amount, &order.Payment.PaymentDT,
+		&order.Payment.Bank, &order.Payment.DeliveryCost, &order.Payment.GoodsTotal, &order.Payment.CustomFee,
+		&order.Items,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("Storage Get s.beginTransaction(ctx): %w", err)
+		return nil, fmt.Errorf("failed to fetch complete order details: %w", err)
 	}
 
-	order, err := s.GetOrder(ctx, tx, orderUID)
-	if err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Get GetOrder Rollback: %w", err)
-		}
-
-		return nil, fmt.Errorf("failed to fetch order: %w", err)
-	}
-
-	delivery, err := s.GetDelivery(ctx, tx, orderUID)
-	if err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Get GetDelivery Rollback: %w", err)
-		}
-
-		return nil, fmt.Errorf("Get GetDelivery: %w", err)
-	}
-
-	order.Delivery = *delivery
-
-	payment, err := s.GetPayment(ctx, tx, orderUID)
-	if err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Get GetPayment Rollback: %w", err)
-		}
-
-		return nil, fmt.Errorf("failed to fetch payment: %w", err)
-	}
-
-	order.Payment = *payment
-
-	items, err := s.GetItems(ctx, tx, orderUID)
-	if err != nil {
-		if err := tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Get GetItems Rollback: %w", err)
-		}
-
-		return nil, fmt.Errorf("failed to fetch items: %w", err)
-	}
-
-	order.Items = items
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return order, nil
+	return &order, nil
 }
 
 func (s *Storage) GetOrder(ctx context.Context, q Querier, orderUID string) (*models.Order, error) {
@@ -176,8 +165,6 @@ func (s *Storage) GetItems(ctx context.Context, q Querier, orderUID string) ([]m
 
 		items = append(items, item)
 	}
-
-	fmt.Println("items", items)
 
 	if len(items) == 0 {
 		return nil, models.ErrItemsNotFound
