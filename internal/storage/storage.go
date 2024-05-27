@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -17,27 +16,23 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-var (
-	ErrDBConnectionFailed  = errors.New("database connection failed")
-	ErrTimeoutWaitingForDB = errors.New("timeout waiting for DB to be ready")
-)
-
 type Storage struct {
+	log *logrus.Logger
 	db  *pgxpool.Pool
 	dsn string
 }
 
 type Querier interface {
-	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
-	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
-	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 func (s *Storage) DB() *pgxpool.Pool {
 	return s.db
 }
 
-func NewStorage(ctx context.Context, dsn string) (*Storage, error) {
+func NewStorage(ctx context.Context, log *logrus.Logger, dsn string) (*Storage, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("storage.go.go NewStorage, pgxpool.ParseConfig(...): %w", err)
@@ -49,15 +44,16 @@ func NewStorage(ctx context.Context, dsn string) (*Storage, error) {
 	}
 
 	return &Storage{
+		log: log,
 		db:  db,
 		dsn: dsn,
 	}, nil
 }
 
-func (s *Storage) Migrate(logger *logrus.Logger) error {
+func (s *Storage) Migrate() error {
 	files, _ := migrationFiles.ReadDir("migrations")
 	for _, file := range files {
-		logger.Infof("Found migration file: %s", file.Name())
+		s.log.Infof("Found migration file: %s", file.Name())
 	}
 
 	conn, err := sql.Open("pgx", s.dsn)
@@ -67,7 +63,7 @@ func (s *Storage) Migrate(logger *logrus.Logger) error {
 
 	defer func() {
 		if err := conn.Close(); err != nil {
-			logrus.Warnf("storage.go Migrate conn.Close(): %v", err)
+			s.log.Warnf("storage.go Migrate conn.Close(): %v", err)
 		}
 	}()
 
@@ -81,7 +77,7 @@ func (s *Storage) Migrate(logger *logrus.Logger) error {
 		return fmt.Errorf("storage.go.go Migrate(...) migrate.Exec(...): %w", err)
 	}
 
-	logger.Infof("Applied %d migrations successfully", n)
+	s.log.Infof("Applied %d migrations successfully", n)
 
 	return nil
 }
