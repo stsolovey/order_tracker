@@ -11,33 +11,43 @@ import (
 func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Order, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("storage.go Upsert starting transaction: %w", err)
+		return nil, fmt.Errorf("Storage Upsert starting transaction: %w", err)
 	}
 
-	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
-			s.log.Warn("storage.go Upsert order tx.Rollback(ctx): %w", err)
-		}
-	}()
-
 	if _, err := s.UpsertOrder(ctx, tx, order); err != nil {
-		return nil, fmt.Errorf("storage.go Upsert order: %w", err)
+		if err := tx.Rollback(ctx); err != nil {
+			return nil, fmt.Errorf("Storage Upsert order tx.Rollback(ctx): %w", err)
+		}
+
+		return nil, fmt.Errorf("Storage Upsert order: %w", err)
 	}
 
 	if _, err := s.UpsertDelivery(ctx, tx, &order.Delivery); err != nil {
-		return nil, fmt.Errorf("storage.go Upsert delivery: %w", err)
+		if err := tx.Rollback(ctx); err != nil {
+			return nil, fmt.Errorf("Storage Upsert delivery tx.Rollback(ctx): %w", err)
+		}
+
+		return nil, fmt.Errorf("Storage Upsert delivery: %w", err)
 	}
 
 	if _, err := s.UpsertPayment(ctx, tx, &order.Payment); err != nil {
-		return nil, fmt.Errorf("storage.go Upsert payment: %w", err)
+		if err := tx.Rollback(ctx); err != nil {
+			return nil, fmt.Errorf("Storage Upsert payment tx.Rollback(ctx): %w", err)
+		}
+
+		return nil, fmt.Errorf("Storage Upsert payment: %w", err)
 	}
 
 	if _, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
-		return nil, fmt.Errorf("storage.go Upsert items: %w", err)
+		if err := tx.Rollback(ctx); err != nil {
+			return nil, fmt.Errorf("Storage Upsert items tx.Rollback(ctx): %w", err)
+		}
+
+		return nil, fmt.Errorf("Storage Upsert items: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("storage.go Upsert committing transaction: %w", err)
+		return nil, fmt.Errorf("Storage Upsert committing transaction: %w", err)
 	}
 
 	return order, nil
@@ -86,21 +96,21 @@ func (s *Storage) UpsertOrder(ctx context.Context, q Querier, order *models.Orde
 
 func (s *Storage) UpsertDelivery(ctx context.Context, q Querier, delivery *models.Delivery) (*models.Delivery, error) {
 	query := `
-		INSERT INTO delivery (
-			order_uid, name, phone, zip, city, address, region, email
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
-		) ON CONFLICT (order_uid) DO UPDATE SET
-			name = EXCLUDED.name,
-			phone = EXCLUDED.phone,
-			zip = EXCLUDED.zip,
-			city = EXCLUDED.city,
-			address = EXCLUDED.address,
-			region = EXCLUDED.region,
-			email = EXCLUDED.email
-		RETURNING 
-			order_uid, name, phone, zip, city, address, region, email;
-	`
+        INSERT INTO delivery (
+            order_uid, name, phone, zip, city, address, region, email
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8
+        ) ON CONFLICT (order_uid) DO UPDATE SET
+            name = EXCLUDED.name,
+            phone = EXCLUDED.phone,
+            zip = EXCLUDED.zip,
+            city = EXCLUDED.city,
+            address = EXCLUDED.address,
+            region = EXCLUDED.region,
+            email = EXCLUDED.email
+        RETURNING 
+            order_uid, name, phone, zip, city, address, region, email;
+    `
 
 	var returningDelivery models.Delivery
 
@@ -167,19 +177,19 @@ func (s *Storage) UpsertItems(ctx context.Context, q Querier, items []models.Ite
 	}
 
 	valueStrings := make([]string, 0, len(items))
-	valueArgs := make([]any, 0, len(items)*11) //nolint:mnd
+	valueArgs := make([]any, 0, len(items)*12) //nolint:mnd
 
 	for i, item := range items {
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
-				i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6, i*11+7, i*11+8, i*11+9, i*11+10, i*11+11)) //nolint:mnd
+			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+				i*12+1, i*12+2, i*12+3, i*12+4, i*12+5, i*12+6, i*12+7, i*12+8, i*12+9, i*12+10, i*12+11, i*12+12)) //nolint:mnd
 
-		valueArgs = append(valueArgs, item.OrderUID, item.TrackNumber, item.Price, item.RID, item.Name,
+		valueArgs = append(valueArgs, item.OrderUID, item.ChrtID, item.TrackNumber, item.Price, item.RID, item.Name,
 			item.Sale, item.Size, item.TotalPrice, item.NMID, item.Brand, item.Status)
 	}
 
 	insertQuery := fmt.Sprintf(`
-        INSERT INTO items (order_uid, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status)
+        INSERT INTO items (order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status)
         VALUES %s
         ON CONFLICT (chrt_id) DO UPDATE SET
             track_number = EXCLUDED.track_number,
