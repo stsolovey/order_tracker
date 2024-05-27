@@ -18,35 +18,37 @@ func (s *Storage) Upsert(ctx context.Context, order *models.Order) (*models.Orde
 
 	defer func() {
 		if shouldRollback {
-			if err := tx.Rollback(ctx); err != nil {
-				s.log.Warn("Failed to rollback transaction", err)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				s.log.Warn("Failed to rollback transaction", rollbackErr)
 			}
 		}
 	}()
 
-	var orderReturning *models.Order
-
-	if orderReturning, err = s.UpsertOrder(ctx, tx, order); err != nil {
+	orderReturning, err := s.UpsertOrder(ctx, tx, order)
+	if err != nil {
 		return nil, fmt.Errorf("storage.go Upsert order: %w", err)
 	}
 
-	if delivery, err := s.UpsertDelivery(ctx, tx, &order.Delivery); err != nil {
-		orderReturning.Delivery = *delivery
-
+	delivery, err := s.UpsertDelivery(ctx, tx, &order.Delivery)
+	if err != nil {
 		return nil, fmt.Errorf("storage.go Upsert delivery: %w", err)
 	}
 
-	if payment, err := s.UpsertPayment(ctx, tx, &order.Payment); err != nil {
-		orderReturning.Payment = *payment
+	orderReturning.Delivery = *delivery
 
+	payment, err := s.UpsertPayment(ctx, tx, &order.Payment)
+	if err != nil {
 		return nil, fmt.Errorf("storage.go Upsert payment: %w", err)
 	}
 
-	if items, err := s.UpsertItems(ctx, tx, order.Items); err != nil {
-		orderReturning.Items = *items
+	orderReturning.Payment = *payment
 
+	items, err := s.UpsertItems(ctx, tx, order.Items)
+	if err != nil {
 		return nil, fmt.Errorf("storage.go Upsert items: %w", err)
 	}
+
+	orderReturning.Items = *items
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("storage.go Upsert committing transaction: %w", err)
