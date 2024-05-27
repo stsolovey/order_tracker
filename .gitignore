@@ -21,6 +21,7 @@ bin/
 main
 vendor/
 .vscode/
+.idea
 
 .env
 
