@@ -33,20 +33,21 @@ func (s *StorageSuite) SetupSuite() {
 	s.ctx = ctx
 	s.cancel = cancel
 
-	err = s.cleanDatabase()
-	if err != nil {
-		s.T().Fatal(err)
-	}
+	// err = s.cleanDatabase()
+	// if err != nil {
+	// 	s.T().Fatal(err)
+	// }
 }
 
 func (s *StorageSuite) TearDownSuite() {
 	s.cancel()
-	err := s.cleanDatabase()
-	if err != nil {
-		s.T().Fatal(err)
-	}
+	// err := s.cleanDatabase()
+	// if err != nil {
+	// 	s.T().Fatal(err)
+	// }
 }
 
+/*
 func (s *StorageSuite) cleanDatabase() error {
 	queries := []string{
 		"DELETE FROM items;",
@@ -62,6 +63,7 @@ func (s *StorageSuite) cleanDatabase() error {
 	}
 	return nil
 }
+*/
 
 func TestStorageSuite(t *testing.T) {
 	suite.Run(t, new(StorageSuite))
