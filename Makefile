@@ -8,7 +8,7 @@ up: up-deps run_server
 
 # Запуск сервера
 run_server:
-	go run cmd/order_service/main.go
+	go run $(CMD_SERVER_PATH)main.go
 
 # Запуск окружения
 up-deps:
