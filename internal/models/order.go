@@ -1,6 +1,16 @@
 package models
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrOrderNotFound    = errors.New("order not found")
+	ErrDeliveryNotFound = errors.New("delivery not found")
+	ErrPaymentNotFound  = errors.New("payment not found")
+	ErrItemsNotFound    = errors.New("items not found")
+)
 
 type Order struct {
 	OrderUID          string    `json:"orderUid"`
@@ -20,16 +30,18 @@ type Order struct {
 }
 
 type Delivery struct {
-	Name    string `json:"name"`
-	Phone   string `json:"phone"`
-	Zip     string `json:"zip,omitempty"`
-	City    string `json:"city"`
-	Address string `json:"address"`
-	Region  string `json:"region,omitempty"`
-	Email   string `json:"email,omitempty"`
+	OrderUID string `json:"orderUid"`
+	Name     string `json:"name"`
+	Phone    string `json:"phone"`
+	Zip      string `json:"zip,omitempty"`
+	City     string `json:"city"`
+	Address  string `json:"address"`
+	Region   string `json:"region,omitempty"`
+	Email    string `json:"email,omitempty"`
 }
 
 type Payment struct {
+	OrderUID     string    `json:"orderUid"`
 	Transaction  string    `json:"transaction"`
 	RequestID    string    `json:"requestId,omitempty"`
 	Currency     string    `json:"currency"`
@@ -44,6 +56,7 @@ type Payment struct {
 
 type Item struct {
 	ChrtID      int     `json:"chrtId"`
+	OrderUID    string  `json:"orderUid"`
 	TrackNumber string  `json:"trackNumber"`
 	Price       float64 `json:"price"`
 	RID         string  `json:"rid,omitempty"`

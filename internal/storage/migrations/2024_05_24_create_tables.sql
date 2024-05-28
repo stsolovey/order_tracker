@@ -17,7 +17,7 @@ CREATE TABLE orders (
 
 CREATE TABLE delivery (
     delivery_id SERIAL PRIMARY KEY, 
-    order_uid TEXT NOT NULL,
+    order_uid TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL, 
     phone TEXT NOT NULL, 
     zip TEXT, 
@@ -30,7 +30,7 @@ CREATE TABLE delivery (
 
 CREATE TABLE payment (
     payment_id SERIAL PRIMARY KEY, 
-    order_uid TEXT NOT NULL,
+    order_uid TEXT NOT NULL UNIQUE,
     transaction TEXT NOT NULL, 
     request_id TEXT,
     currency TEXT NOT NULL,
@@ -45,8 +45,8 @@ CREATE TABLE payment (
 );
 
 CREATE TABLE items (
-    item_id SERIAL PRIMARY KEY,
     order_uid TEXT NOT NULL,
+    chrt_id BIGINT PRIMARY KEY,
     track_number TEXT NOT NULL,
     price DECIMAL NOT NULL,
     rid TEXT,
