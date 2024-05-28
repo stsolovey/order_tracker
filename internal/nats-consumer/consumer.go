@@ -77,6 +77,16 @@ func (nc *Consumer) Subscribe(ctx context.Context, subject string) error {
 	return nil
 }
 
+func (nc *Consumer) PublishOrder(order models.Order) error {
+	data, err := json.Marshal(order)
+	if err != nil {
+		return err
+	}
+
+	_, err = nc.js.Publish("orders", data)
+	return err
+}
+
 func (nc *Consumer) Close() {
 	nc.conn.Close()
 }
