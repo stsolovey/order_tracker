@@ -13,6 +13,7 @@ type Config struct {
 	AppPort     string
 	AppHost     string
 	LogLevel    string
+	NATSURL     string
 }
 
 func New(path string) *Config {
@@ -29,6 +30,7 @@ func New(path string) *Config {
 	appHost := os.Getenv("APP_HOST")
 	appPort := os.Getenv("APP_PORT")
 	logLevel := os.Getenv("LOG_LEVEL")
+	natsURL := os.Getenv("NATS_URL")
 
 	var dsn string
 
@@ -45,6 +47,8 @@ func New(path string) *Config {
 		panic("postgresDB environment variable is missing")
 	case appPort == "":
 		panic("appPort environment variable is missing")
+	case natsURL == "":
+		panic("natsURL environment variable is missing")
 	default:
 		hostPort := net.JoinHostPort(postgresHost, postgresPort)
 		dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
@@ -55,6 +59,7 @@ func New(path string) *Config {
 			AppPort:     appPort,
 			AppHost:     appHost,
 			LogLevel:    logLevel,
+			NATSURL:     natsURL,
 		}
 	}
 }
