@@ -80,11 +80,15 @@ func (nc *Consumer) Subscribe(ctx context.Context, subject string) error {
 func (nc *Consumer) PublishOrder(order models.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
-		return err
+		return fmt.Errorf("consumer.go PublishOrder(...) json.Marshal(order): %w", err)
 	}
 
 	_, err = nc.js.Publish("orders", data)
-	return err
+	if err != nil {
+		return fmt.Errorf("consumer.go PublishOrder(...) nc.js.Publish(...): %w", err)
+	}
+
+	return nil
 }
 
 func (nc *Consumer) Close() {
