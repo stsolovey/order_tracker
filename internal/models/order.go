@@ -12,6 +12,11 @@ var (
 	ErrItemsNotFound    = errors.New("items not found")
 )
 
+type HTTPResponse struct {
+	Data  interface{} `json:"data,omitempty"`
+	Error string      `json:"error,omitempty"`
+}
+
 type Order struct {
 	OrderUID          string    `json:"orderUid"`
 	TrackNumber       string    `json:"trackNumber"`
