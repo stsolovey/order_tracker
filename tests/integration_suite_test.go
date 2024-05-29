@@ -3,8 +3,9 @@ package integrationtest
 import (
 	"context"
 	"fmt"
-	"os/signal"
-	"syscall"
+
+	// "os/signal"
+	// "syscall"
 	"testing"
 	"time"
 
@@ -15,22 +16,20 @@ import (
 	"github.com/stsolovey/order_tracker/internal/logger"
 	natsclient "github.com/stsolovey/order_tracker/internal/nats-client"
 	ordercache "github.com/stsolovey/order_tracker/internal/order-cache"
-	"github.com/stsolovey/order_tracker/internal/server"
+
 	"github.com/stsolovey/order_tracker/internal/service"
 	"github.com/stsolovey/order_tracker/internal/storage"
 )
 
 type IntegrationTestSuite struct { //nolint:revive
 	suite.Suite
-	log              *logrus.Logger
-	orderCache       *ordercache.OrderCache
-	db               *storage.Storage
-	cfg              *config.Config
-	natsConn         *nats.Conn
-	natsClient       *natsclient.Client
-	app              *service.Service
-	httpServer       *server.Server
-	httpServerCancel context.CancelFunc
+	log        *logrus.Logger
+	orderCache *ordercache.OrderCache
+	db         *storage.Storage
+	cfg        *config.Config
+	natsConn   *nats.Conn
+	natsClient *natsclient.Client
+	app        *service.Service
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
@@ -62,14 +61,6 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	err = s.natsClient.Subscribe(context.Background(), "orders")
 	s.Require().NoError(err, "should subscribe to NATS subject without error")
-
-	s.httpServer = server.CreateServer(s.cfg, s.log, s.app)
-
-	var ctx context.Context
-	ctx, s.httpServerCancel = signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	err = s.httpServer.Start(ctx)
-	s.Require().NoError(err, "should start httpServer without error")
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {
@@ -77,7 +68,6 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 	s.natsConn.Close()
 	s.truncateTables()
 	s.db.DB().Close()
-	s.httpServerCancel()
 }
 
 func (s *IntegrationTestSuite) truncateTables() {

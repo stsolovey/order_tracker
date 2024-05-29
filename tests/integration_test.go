@@ -65,18 +65,27 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 	time.Sleep(2 * time.Second)
 
 	s.Run("Successful from database direct retrieving", func() {
+		err := s.natsClient.PublishOrder(order)
+		s.Require().NoError(err, "should publish without error")
+
 		fetchedOrder, err := s.db.Get(context.Background(), order.OrderUID)
 		s.Require().NoError(err, "should fetch order from the database without error")
 		s.Require().NotNil(fetchedOrder, "fetched order should not be nil")
 	})
 
 	s.Run("Successful cache retrieving", func() {
+		err := s.natsClient.PublishOrder(order)
+		s.Require().NoError(err, "should publish without error")
+
 		cachedOrder, err := s.orderCache.Get(context.Background(), order.OrderUID)
 		s.Require().NoError(err, "should fetch order from the cache without error")
 		s.Require().NotNil(cachedOrder, "cached order should not be nil")
 	})
 
 	s.Run("Successful service layer retrieving", func() {
+		err := s.natsClient.PublishOrder(order)
+		s.Require().NoError(err, "should publish without error")
+
 		retrievedOrder, err := s.app.GetOrder(context.Background(), order.OrderUID)
 		s.Require().NoError(err, "should GetOrder(...) work without error")
 		s.Require().NotNil(retrievedOrder, "retrieved with GetOrder(...) should not be nil")
@@ -104,4 +113,5 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().Equal(order.Payment.Transaction, httpOrder.Payment.Transaction, "payment transaction should match")
 		s.Require().Equal(len(order.Items), len(httpOrder.Items), "sent and got number of Items should match")
 	})
+
 }
