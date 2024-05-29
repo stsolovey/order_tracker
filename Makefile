@@ -10,11 +10,12 @@ up: up-deps run_server
 run_server:
 	go run $(CMD_SERVER_PATH)main.go
 
-# Запуск окружения
+# Запуск окружения (небольшая пауза - иначе падение на первом старте)
 up-deps:
 	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml up -d
+	sleep 3
 
-# Запуск окружения с паузой
+# Запуск окружения с (надёжной) паузой
 up-deps-ci:
 	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml up -d
 	sleep 10
