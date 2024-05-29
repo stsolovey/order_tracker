@@ -70,4 +70,6 @@ func main() {
 	if err := natsClient.Subscribe(ctx, "orders"); err != nil {
 		log.WithError(err).Panic("Failed to subscribe to NATS subject")
 	}
+
+	<-ctx.Done() // bad solution for "listening" (without graceful shutdown)
 }
