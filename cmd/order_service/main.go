@@ -12,6 +12,7 @@ import (
 	"github.com/stsolovey/order_tracker/internal/logger"
 	natsclient "github.com/stsolovey/order_tracker/internal/nats-client"
 	ordercache "github.com/stsolovey/order_tracker/internal/order-cache"
+	"github.com/stsolovey/order_tracker/internal/server"
 	"github.com/stsolovey/order_tracker/internal/service"
 	"github.com/stsolovey/order_tracker/internal/storage"
 )
@@ -71,5 +72,9 @@ func main() {
 		log.WithError(err).Panic("Failed to subscribe to NATS subject")
 	}
 
-	<-ctx.Done() // bad solution for "listening" (without graceful shutdown)
+	httpServer := server.CreateServer(cfg, log, app)
+
+	if err := httpServer.Start(ctx); err != nil {
+		log.WithError(err).Panic("Server stopped unexpectedly")
+	}
 }
