@@ -12,6 +12,8 @@ import (
 	"github.com/stsolovey/order_tracker/internal/service"
 )
 
+const queueGroupName = "order_tracker"
+
 type Consumer struct {
 	conn    *nats.Conn
 	js      nats.JetStreamContext
@@ -43,10 +45,10 @@ func New(cfg *config.Config, log *logrus.Logger, svc service.OrderServiceInterfa
 func (nc *Consumer) Subscribe(ctx context.Context, subject string) error {
 	go func() {
 		<-ctx.Done()
-		nc.Close() // err
+		nc.Close()
 	}()
 
-	_, err := nc.js.Subscribe(subject, func(msg *nats.Msg) {
+	_, err := nc.js.QueueSubscribe(subject, queueGroupName, func(msg *nats.Msg) {
 		var order models.Order
 
 		if err := json.Unmarshal(msg.Data, &order); err != nil {
@@ -71,8 +73,8 @@ func (nc *Consumer) Subscribe(ctx context.Context, subject string) error {
 
 		nc.log.Infof("Order %s upserted successfully", order.OrderUID)
 
-		if ackErr := msg.Ack(); ackErr != nil {
-			nc.log.WithError(ackErr).Error("failed to acknowledge message")
+		if err := msg.AckSync(); err != nil {
+			nc.log.WithError(err).Error("failed to acknowledge message")
 		}
 	})
 	if err != nil {
