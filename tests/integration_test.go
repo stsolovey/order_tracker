@@ -113,5 +113,4 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().Equal(order.Payment.Transaction, httpOrder.Payment.Transaction, "payment transaction should match")
 		s.Require().Equal(len(order.Items), len(httpOrder.Items), "sent and got number of Items should match")
 	})
-
 }

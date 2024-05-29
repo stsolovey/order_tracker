@@ -3,7 +3,6 @@ package integrationtest
 import (
 	"context"
 	"fmt"
-
 	// "os/signal"
 	// "syscall"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"github.com/stsolovey/order_tracker/internal/logger"
 	natsclient "github.com/stsolovey/order_tracker/internal/nats-client"
 	ordercache "github.com/stsolovey/order_tracker/internal/order-cache"
-
 	"github.com/stsolovey/order_tracker/internal/service"
 	"github.com/stsolovey/order_tracker/internal/storage"
 )
