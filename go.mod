@@ -3,6 +3,7 @@ module github.com/stsolovey/order_tracker
 go 1.22.3
 
 require (
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/joho/godotenv v1.5.1
 	github.com/rubenv/sql-migrate v1.6.1
@@ -14,6 +15,7 @@ require (
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 )
 
 require (
