@@ -17,8 +17,10 @@ func (s *Storage) GetAll(ctx context.Context) ([]models.Order, error) {
 
 	orders, deliveries, payments, items, err := s.fetchAllData(ctx, tx)
 	if err != nil {
-		if err = tx.Rollback(ctx); err != nil {
-			return nil, fmt.Errorf("Storage GetAll(...) s.fetchAllData tx.Rollback(...): %w", err)
+		s.log.Debug("fetchAllData returned an error:", err)
+
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+			return nil, fmt.Errorf("Storage GetAll(...) s.fetchAllData tx.Rollback(...): %w", rollbackErr)
 		}
 
 		return nil, fmt.Errorf("Storage GetAll(...) s.fetchAllData(...): %w", err)
@@ -120,7 +122,7 @@ func (s *Storage) GetOrders(ctx context.Context, q Querier) ([]models.Order, err
 	for rows.Next() {
 		var order models.Order
 
-		var dateCreated int64
+		var dateCreated time.Time
 
 		if err := rows.Scan(
 			&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale,
@@ -130,7 +132,7 @@ func (s *Storage) GetOrders(ctx context.Context, q Querier) ([]models.Order, err
 			return nil, fmt.Errorf("Storage GetOrders(...) rows.Scan(...): %w", err)
 		}
 
-		order.DateCreated = time.Unix(dateCreated, 0)
+		order.DateCreated = dateCreated
 
 		orders = append(orders, order)
 	}
@@ -232,7 +234,7 @@ func (s *Storage) GetPayments(ctx context.Context, q Querier) ([]models.Payment,
 	for rows.Next() {
 		var payment models.Payment
 
-		var paymentDT int64
+		var paymentDT time.Time
 
 		if err := rows.Scan(
 			&payment.OrderUID, &payment.Transaction, &payment.RequestID, &payment.Currency,
@@ -242,7 +244,7 @@ func (s *Storage) GetPayments(ctx context.Context, q Querier) ([]models.Payment,
 			return nil, fmt.Errorf("Storage GetPayments(...) rows.Scan(...): %w", err)
 		}
 
-		payment.PaymentDT = time.Unix(paymentDT, 0)
+		payment.PaymentDT = paymentDT
 
 		payments = append(payments, payment)
 	}
