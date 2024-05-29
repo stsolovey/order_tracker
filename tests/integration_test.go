@@ -12,7 +12,7 @@ import (
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/logger"
 	"github.com/stsolovey/order_tracker/internal/models"
-	natsconsumer "github.com/stsolovey/order_tracker/internal/nats-consumer"
+	natsclient "github.com/stsolovey/order_tracker/internal/nats-client"
 	ordercache "github.com/stsolovey/order_tracker/internal/order-cache"
 	"github.com/stsolovey/order_tracker/internal/service"
 	"github.com/stsolovey/order_tracker/internal/storage"
@@ -24,7 +24,7 @@ type IntegrationTestSuite struct {
 	db         *storage.Storage
 	cfg        *config.Config
 	natsConn   *nats.Conn
-	natsClient *natsconsumer.Consumer
+	natsClient *natsclient.Client
 	app        *service.Service
 }
 
@@ -52,7 +52,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	_, err = s.natsConn.JetStream()
 	s.Require().NoError(err, "should get JetStream context without error")
 
-	s.natsClient, err = natsconsumer.New(s.cfg, s.log, s.app)
+	s.natsClient, err = natsclient.New(s.cfg, s.log, s.app)
 	s.Require().NoError(err, "should initialize NATS client without error")
 
 	err = s.natsClient.Subscribe(context.Background(), "orders")

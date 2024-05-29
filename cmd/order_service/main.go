@@ -10,7 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/logger"
-	natsconsumer "github.com/stsolovey/order_tracker/internal/nats-consumer"
+	natsclient "github.com/stsolovey/order_tracker/internal/nats-client"
 	ordercache "github.com/stsolovey/order_tracker/internal/order-cache"
 	"github.com/stsolovey/order_tracker/internal/service"
 	"github.com/stsolovey/order_tracker/internal/storage"
@@ -61,7 +61,7 @@ func main() {
 		log.WithError(err).Panic("Failed to create stream")
 	}
 
-	natsClient, err := natsconsumer.New(cfg, log, app)
+	natsClient, err := natsclient.New(cfg, log, app)
 	if err != nil {
 		log.WithError(err).Panic("Failed to initialize NATS client")
 	}
