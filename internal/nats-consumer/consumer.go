@@ -16,10 +16,10 @@ type Consumer struct {
 	conn    *nats.Conn
 	js      nats.JetStreamContext
 	log     *logrus.Logger
-	service *service.Service
+	service service.OrderServiceInterface
 }
 
-func New(cfg *config.Config, log *logrus.Logger, svc *service.Service) (*Consumer, error) {
+func New(cfg *config.Config, log *logrus.Logger, svc service.OrderServiceInterface) (*Consumer, error) {
 	nc, err := nats.Connect(cfg.NATSURL)
 	if err != nil {
 		return nil, fmt.Errorf("natsconsumer New(...) nats.Connect(...): %w", err)
@@ -41,6 +41,11 @@ func New(cfg *config.Config, log *logrus.Logger, svc *service.Service) (*Consume
 }
 
 func (nc *Consumer) Subscribe(ctx context.Context, subject string) error {
+	go func() {
+		<-ctx.Done()
+		nc.Close() // err
+	}()
+
 	_, err := nc.js.Subscribe(subject, func(msg *nats.Msg) {
 		var order models.Order
 
