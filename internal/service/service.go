@@ -25,6 +25,12 @@ type Service struct {
 	storage storage
 }
 
+type OrderServiceInterface interface {
+	Init(ctx context.Context) error
+	UpsertOrder(ctx context.Context, order models.Order) error
+	GetOrder(ctx context.Context, orderID string) (*models.Order, error)
+}
+
 func New(log *logrus.Logger, cache cache, storage storage) *Service {
 	return &Service{
 		log:     log,
@@ -39,6 +45,8 @@ func (s *Service) Init(ctx context.Context) error {
 		return fmt.Errorf("service.go Init(...): %w", err)
 	}
 
+	s.log.Debugf("Fetched %d orders from storage", len(orders))
+
 	for _, order := range orders {
 		if err := s.cache.Upsert(ctx, order); err != nil {
 			s.log.WithError(err).Errorf("service.go Init(...) Upsert(%s)", order.OrderUID)
@@ -52,7 +60,7 @@ func (s *Service) Init(ctx context.Context) error {
 
 func (s *Service) UpsertOrder(ctx context.Context, order models.Order) error {
 	if err := s.cache.Upsert(ctx, order); err != nil {
-		return fmt.Errorf("service.go UpsertOrder s.cache.Upsert(...): %w", err)
+		return fmt.Errorf("service.go UpsertOrder s.cache.Upsert(..., %s): %w", order.OrderUID, err)
 	}
 
 	if _, err := s.storage.Upsert(ctx, &order); err != nil {
