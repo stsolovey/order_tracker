@@ -17,5 +17,19 @@ services:
       timeout: 2s
       retries: 10
 
+  nats:
+    image: nats:2.10.16
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/var/lib/nats/data
+    command:
+      - "--name=nats"
+      - "--http_port=8222"
+      - "--jetstream"
+      - "--store_dir=/var/lib/nats/data"
+
 volumes:
   postgres_data:
+  nats_data:

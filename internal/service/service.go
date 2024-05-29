@@ -15,13 +15,20 @@ type cache interface {
 
 type storage interface {
 	Get(ctx context.Context, orderUID string) (*models.Order, error)
-	// upsert get getall (database)
+	GetAll(ctx context.Context) ([]models.Order, error)
+	Upsert(ctx context.Context, order *models.Order) (*models.Order, error)
 }
 
 type Service struct {
 	log     *logrus.Logger
 	cache   cache
 	storage storage
+}
+
+type OrderServiceInterface interface {
+	Init(ctx context.Context) error
+	UpsertOrder(ctx context.Context, order models.Order) error
+	GetOrder(ctx context.Context, orderID string) (*models.Order, error)
 }
 
 func New(log *logrus.Logger, cache cache, storage storage) *Service {
@@ -32,14 +39,32 @@ func New(log *logrus.Logger, cache cache, storage storage) *Service {
 	}
 }
 
-func (s *Service) Init(_ context.Context) error {
-	// t0d0 init (db->cache)
+func (s *Service) Init(ctx context.Context) error {
+	orders, err := s.storage.GetAll(ctx)
+	if err != nil {
+		return fmt.Errorf("service.go Init(...): %w", err)
+	}
+
+	s.log.Debugf("Fetched %d orders from storage", len(orders))
+
+	for _, order := range orders {
+		if err := s.cache.Upsert(ctx, order); err != nil {
+			s.log.WithError(err).Errorf("service.go Init(...) Upsert(%s)", order.OrderUID)
+		}
+	}
+
+	s.log.Infof("Initialized cache with %d orders", len(orders))
+
 	return nil
 }
 
 func (s *Service) UpsertOrder(ctx context.Context, order models.Order) error {
 	if err := s.cache.Upsert(ctx, order); err != nil {
-		return fmt.Errorf("Service UpsertOrder; %w", err)
+		return fmt.Errorf("service.go UpsertOrder s.cache.Upsert(..., %s): %w", order.OrderUID, err)
+	}
+
+	if _, err := s.storage.Upsert(ctx, &order); err != nil {
+		return fmt.Errorf("service.go UpsertOrder s.storage.Upsert(...): %w", err)
 	}
 
 	return nil
@@ -48,7 +73,16 @@ func (s *Service) UpsertOrder(ctx context.Context, order models.Order) error {
 func (s *Service) GetOrder(ctx context.Context, orderID string) (*models.Order, error) {
 	order, err := s.cache.Get(ctx, orderID)
 	if err != nil {
-		return nil, fmt.Errorf(".. %w", err)
+		s.log.WithError(err).Warnf("Order %s not found in cache, fetching from storage", orderID)
+
+		order, err = s.storage.Get(ctx, orderID)
+		if err != nil {
+			return nil, fmt.Errorf("service.go GetOrder s.storage.Get(...): %w", err)
+		}
+
+		if err := s.cache.Upsert(ctx, *order); err != nil {
+			s.log.WithError(err).Errorf("service.go GetOrder s.cache.Upsert(%s)", orderID)
+		}
 	}
 
 	return order, nil

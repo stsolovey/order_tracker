@@ -39,7 +39,7 @@ func (oc *OrderCache) Upsert(_ context.Context, order models.Order) error {
 	defer oc.mu.Unlock()
 
 	oc.m[order.OrderUID] = order
-	oc.log.Debug("Order upserted:", order.OrderUID)
+	oc.log.Debugf("order_cache.go Upsert(...), order upserted: %s", order.OrderUID)
 
 	return nil
 }

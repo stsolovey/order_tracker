@@ -8,7 +8,7 @@ up: up-deps run_server
 
 # Запуск сервера
 run_server:
-	go run cmd/order_service/main.go
+	go run $(CMD_SERVER_PATH)main.go
 
 # Запуск окружения
 up-deps:
@@ -49,6 +49,11 @@ logs:
 
 # Остановка всего: приложения и зависимостей
 down: stop-app down-deps
+
+# Remove volumes
+remove-volumes:
+	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml down -v --remove-orphans
+
 
 # Тестирование: старт окружения и приложения, тест, стоп
 test: up-deps run-app-background
@@ -111,6 +116,7 @@ help:
 	@echo "  run-app-background   - Run the compiled application in the background"
 	@echo "  stop-app             - Stop the application using its PID"
 	@echo "  down                 - Stop application and dependencies"
+	@echo "  remove-volumes       - Stop environment (if it's UP) and remove volumes in Docker Compose"
 	@echo "  test                 - Start environment, run tests, and clean up"
 	@echo "  testv                - Start environment, run tests verbosely, and clean up"
 	@echo "  itest                - Start environment, run integration tests, and clean up"
