@@ -1,10 +1,35 @@
 # Пути
 CMD_SERVER_PATH=./cmd/order_service/
+CMD_PUBLISHER_PATH=./cmd/publisher_script/
+CMD_STRESS_PATH=./cmd/stress_test/
 BIN_PATH=./bin/
 SERVER_EXECUTABLE=order_service
 
+# stress test
+WRK_THREADS := 12
+WRK_CONNECTIONS := 400
+WRK_DURATION := 30s
+WRK_URL := http://localhost:8080/api/v1/orders/orderUID0
+
+VEGETA_RATE := 1000
+VEGETA_DURATION := 30s
+VEGETA_TARGETS_FILE := targets.txt
+
 # Запуск окружения и сервиса
 up: up-deps run_server
+
+# Генерация заказов
+gen:
+	go run $(CMD_PUBLISHER_PATH)main.go
+
+# Stress test
+stress-wrk:
+	@echo "Running WRK stress test..."
+	wrk -t$(WRK_THREADS) -c$(WRK_CONNECTIONS) -d$(WRK_DURATION) $(WRK_URL)
+
+stress-vegeta:
+	@echo "Running Vegeta stress test..."
+	vegeta attack -targets=$(VEGETA_TARGETS_FILE) -rate=$(VEGETA_RATE) -duration=$(VEGETA_DURATION) | vegeta report
 
 # Запуск сервера
 run_server:
@@ -54,7 +79,6 @@ down: stop-app down-deps
 # Remove volumes
 remove-volumes:
 	docker compose --env-file ./.env -f ./deploy/local/docker-compose.yml down -v --remove-orphans
-
 
 # Тестирование: старт окружения и приложения, тест, стоп
 test: up-deps run-app-background
@@ -110,6 +134,7 @@ help:
 	@echo "  up                   - Start dependencies and the service"
 	@echo "  run_server           - Start the server using 'go run'"
 	@echo "  up-deps              - Start environment using Docker Compose"
+	@echo "  up-deps-ci           - Start environment with a reliable pause"
 	@echo "  down-deps            - Stop environment using Docker Compose"
 	@echo "  build                - Compile the project"
 	@echo "  logs                 - View Docker Compose logs"
@@ -119,9 +144,13 @@ help:
 	@echo "  down                 - Stop application and dependencies"
 	@echo "  remove-volumes       - Stop environment (if it's UP) and remove volumes in Docker Compose"
 	@echo "  test                 - Start environment, run tests, and clean up"
+	@echo "  test-ci              - Start environment with a reliable pause, run tests, and clean up"
 	@echo "  testv                - Start environment, run tests verbosely, and clean up"
 	@echo "  itest                - Start environment, run integration tests, and clean up"
 	@echo "  itestv               - Start environment, run integration tests verbosely, and clean up"
 	@echo "  tidy                 - Format and tidy up the Go code"
 	@echo "  lint                 - Lint and format the project code"
 	@echo "  tools                - Install necessary tools"
+	@echo "  gen                  - Generate orders by running the publisher script"
+	@echo "  stress-wrk           - Run WRK stress test"
+	@echo "  stress-vegeta        - Run Vegeta stress test"
