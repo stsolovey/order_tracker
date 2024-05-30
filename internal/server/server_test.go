@@ -79,7 +79,7 @@ func (s *ServerTestSuite) TestGetOrder_Success() {
 
 	s.service.On("GetOrder", mock.Anything, orderUID).Return(order, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/orders/"+orderUID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/orders/"+orderUID, nil)
 	s.router.ServeHTTP(s.recorder, req)
 
 	require.Equal(s.T(), http.StatusOK, s.recorder.Code)
@@ -90,14 +90,14 @@ func (s *ServerTestSuite) TestGetOrder_NotFound() {
 	orderUID := "nonExistentUID"
 	s.service.On("GetOrder", mock.Anything, orderUID).Return(nil, models.ErrOrderNotFound)
 
-	req := httptest.NewRequest(http.MethodGet, "/orders/"+orderUID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/orders/"+orderUID, nil)
 	s.router.ServeHTTP(s.recorder, req)
 
 	require.Equal(s.T(), http.StatusNotFound, s.recorder.Code)
 }
 
 func (s *ServerTestSuite) TestGetOrder_BadRequest() {
-	req := httptest.NewRequest(http.MethodGet, "/orders/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/orders/", nil)
 	s.router.ServeHTTP(s.recorder, req)
 
 	require.Equal(s.T(), http.StatusBadRequest, s.recorder.Code)
@@ -121,7 +121,7 @@ func (s *ServerTestSuite) TestStartServer() {
 
 	time.Sleep(time.Second)
 
-	req, err := http.NewRequest(http.MethodGet, "http://localhost:8081/orders/"+orderUID, nil)
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:8081/api/v1/orders/"+orderUID, nil)
 	require.NoError(s.T(), err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(s.T(), err)

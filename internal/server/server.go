@@ -90,7 +90,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func ConfigureRoutes(r chi.Router, orderService service.OrderServiceInterface, log *logrus.Logger) {
-	r.Route("/orders", func(r chi.Router) {
+	r.Route("/api/v1/orders", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "Missing order ID", http.StatusBadRequest)
 		})
@@ -112,9 +112,10 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 
 	order, err := app.GetOrder(ctx, orderID)
 	if err != nil {
-		if errors.Is(err, models.ErrOrderNotFound) {
+		switch {
+		case errors.Is(err, models.ErrOrderNotFound):
 			http.Error(w, "Order not found", http.StatusNotFound)
-		} else {
+		default:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
