@@ -64,7 +64,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 func (s *IntegrationTestSuite) TearDownSuite() {
 	s.natsClient.Close()
 	s.natsConn.Close()
-	s.truncateTables()
+	// s.truncateTables()
 	s.db.DB().Close()
 }
 
