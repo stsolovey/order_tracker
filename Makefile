@@ -58,14 +58,14 @@ remove-volumes:
 
 # Тестирование: старт окружения и приложения, тест, стоп
 test: up-deps run-app-background
-	sleep 1 # Даём приложению время для запуска
+	sleep 2 # Даём приложению время для запуска
 	go test ./... -count=1; result=$$?; \
 	make stop-app; \
 	make down-deps; \
 	exit $$result
 
 test-ci: up-deps-ci run-app-background
-	sleep 1 # Даём приложению время для запуска
+	sleep 3 # Даём приложению время для запуска
 	go test ./... -count=1; result=$$?; \
 	make stop-app; \
 	make down-deps; \
