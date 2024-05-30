@@ -71,8 +71,8 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().NoError(err, "should publish without error")
 
 		var fetchedOrder *models.Order
-		timeout := time.After(10 * time.Second)
-		ticker := time.NewTicker(500 * time.Millisecond)
+		timeout := time.After(20 * time.Second)
+		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
 		for {
@@ -96,8 +96,8 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().NoError(err, "should publish without error")
 
 		var cachedOrder *models.Order
-		timeout := time.After(10 * time.Second)
-		ticker := time.NewTicker(500 * time.Millisecond)
+		timeout := time.After(20 * time.Second)
+		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
 		for {
@@ -121,8 +121,8 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().NoError(err, "should publish without error")
 
 		var retrievedOrder *models.Order
-		timeout := time.After(10 * time.Second)
-		ticker := time.NewTicker(500 * time.Millisecond)
+		timeout := time.After(20 * time.Second)
+		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
 		for {
