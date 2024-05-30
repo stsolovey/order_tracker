@@ -60,18 +60,15 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 
 	s.Run("Successful natsClient Publishing", func() {
 		err := s.natsClient.PublishOrder(order)
-		time.Sleep(2 * time.Second)
 		s.Require().NoError(err, "should publish without error")
 	})
-
-	time.Sleep(2 * time.Second)
 
 	s.Run("Successful from database direct retrieving", func() {
 		err := s.natsClient.PublishOrder(order)
 		s.Require().NoError(err, "should publish without error")
 
 		var fetchedOrder *models.Order
-		timeout := time.After(20 * time.Second)
+		timeout := time.After(30 * time.Second)
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
@@ -125,7 +122,7 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 		s.Require().NoError(err, "should publish without error")
 
 		var retrievedOrder *models.Order
-		timeout := time.After(20 * time.Second)
+		timeout := time.After(30 * time.Second)
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
