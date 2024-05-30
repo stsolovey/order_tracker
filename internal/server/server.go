@@ -65,8 +65,8 @@ func (s *Server) Start(ctx context.Context) error {
 		ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeoutDuration)
 		defer cancel()
 
-		if err := s.server.Shutdown(ctxShutdown); err != nil {
-			s.logger.WithError(err).Error("HTTP server shutdown failed")
+		if err := s.Shutdown(ctxShutdown); err != nil { //nolint:contextcheck
+			s.logger.WithError(err).Error("http server shutdown failed")
 		}
 	}()
 
@@ -91,7 +91,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func ConfigureRoutes(r chi.Router, orderService service.OrderServiceInterface, log *logrus.Logger) {
 	r.Route("/orders", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, req *http.Request) {
+		r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "Missing order ID", http.StatusBadRequest)
 		})
 		r.Get("/{uid}", func(w http.ResponseWriter, req *http.Request) {
@@ -104,10 +104,12 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 	orderID := chi.URLParam(r, "uid")
 	if orderID == "" {
 		http.Error(w, "Order ID is required", http.StatusBadRequest)
+
 		return
 	}
 
 	ctx := r.Context()
+
 	order, err := app.GetOrder(ctx, orderID)
 	if err != nil {
 		if errors.Is(err, models.ErrOrderNotFound) {
@@ -115,16 +117,19 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+
 		return
 	}
 
 	response, err := json.Marshal(order)
 	if err != nil {
 		http.Error(w, "Failed to serialize the order", http.StatusInternalServerError)
+
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
 	_, err = w.Write(response)
 	if err != nil {
 		log.Infof("Failed to write response: %s", err)
