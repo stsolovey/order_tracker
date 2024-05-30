@@ -102,7 +102,7 @@ order_tracker/
    ```
 
 2. **Set Up Environment Variables**
-    - Copy the example `.env.example` to `.env` and fill in the required values.
+Copy the example `.env.example` to `.env` and fill in the required values.
 
 3. **Build and Run the Service**
 Start the service along with PostgreSQL and NATS:
@@ -117,14 +117,14 @@ Execute the tests to verify the service:
       ```
 
 ### Testing the Service
-Use the provided script in the `cmd/order_service` directory to publish sample order data to the NATS subject for testing.
+Script in the `cmd/order_service` directory for publication sample order data to the NATS subject for testing.
 ```bash
 make gen
 ```
 
 ### Stress Testing
 
-- Use tools like WRK and Vegeta to perform stress testing and evaluate the performance of the service. Adjust configurations and optimize code as necessary based on the test results.
+WRK and Vegeta perform stress testing and evaluate the performance of the service.
 
 ```bash
 make stress-wrk
