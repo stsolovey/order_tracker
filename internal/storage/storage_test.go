@@ -548,4 +548,10 @@ func (s *StorageSuite) TestGetItems() {
 		s.Require().Error(err, "Should return an error for a non-existent items query")
 		s.Require().ErrorIs(err, models.ErrItemsNotFound, "Error should be ErrItemsNotFound for non-existent items")
 	})
+
+	s.Run("Retrieve all orders", func() {
+		all, err := s.storage.GetAll(s.ctx)
+		s.Require().NoError(err, "Should return an error for a non-existent items query")
+		s.Require().Len(all, 2, "Should retrieve two items")
+	})
 }
