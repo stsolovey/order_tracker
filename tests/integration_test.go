@@ -60,34 +60,83 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 
 	s.Run("Successful natsClient Publishing", func() {
 		err := s.natsClient.PublishOrder(order)
+		time.Sleep(2 * time.Second)
 		s.Require().NoError(err, "should publish without error")
 	})
 
 	time.Sleep(2 * time.Second)
-	/*
-			s.Run("Successful from database direct retrieving", func() {
-				err := s.natsClient.PublishOrder(order)
-				s.Require().NoError(err, "should publish without error")
 
-				fetchedOrder, err := s.db.Get(context.Background(), order.OrderUID)
-				s.Require().NoError(err, "should fetch order from the database without error")
-				s.Require().NotNil(fetchedOrder, "fetched order should not be nil")
-			})
+	s.Run("Successful from database direct retrieving", func() {
+		err := s.natsClient.PublishOrder(order)
+		s.Require().NoError(err, "should publish without error")
 
-		s.Run("Successful cache retrieving", func() {
-			err := s.natsClient.PublishOrder(order)
-			s.Require().NoError(err, "should publish without error")
+		var fetchedOrder *models.Order
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
 
-			cachedOrder, err := s.orderCache.Get(context.Background(), order.OrderUID)
-			s.Require().NoError(err, "should fetch order from the cache without error")
-			s.Require().NotNil(cachedOrder, "cached order should not be nil")
-		})
-	*/
+		for {
+			select {
+			case <-timeout:
+				s.Require().Fail("timeout waiting for the order to be stored")
+			case <-ticker.C:
+				fetchedOrder, err = s.db.Get(context.Background(), order.OrderUID)
+				if err == nil && fetchedOrder != nil {
+					goto Found
+				}
+			}
+		}
+	Found:
+		s.Require().NoError(err, "should fetch order from the database without error")
+		s.Require().NotNil(fetchedOrder, "fetched order should not be nil")
+	})
+
+	s.Run("Successful cache retrieving", func() {
+		err := s.natsClient.PublishOrder(order)
+		s.Require().NoError(err, "should publish without error")
+
+		var cachedOrder *models.Order
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-timeout:
+				s.Require().Fail("timeout waiting for the order to be stored")
+			case <-ticker.C:
+				cachedOrder, err = s.orderCache.Get(context.Background(), order.OrderUID)
+				if err == nil && cachedOrder != nil {
+					goto Found
+				}
+			}
+		}
+	Found:
+		s.Require().NoError(err, "should fetch order from the cache without error")
+		s.Require().NotNil(cachedOrder, "cached order should not be nil")
+	})
+
 	s.Run("Successful service layer retrieving", func() {
 		err := s.natsClient.PublishOrder(order)
 		s.Require().NoError(err, "should publish without error")
 
-		retrievedOrder, err := s.app.GetOrder(context.Background(), order.OrderUID)
+		var retrievedOrder *models.Order
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-timeout:
+				s.Require().Fail("timeout waiting for the order to be stored")
+			case <-ticker.C:
+				retrievedOrder, err = s.app.GetOrder(context.Background(), order.OrderUID)
+				if err == nil && retrievedOrder != nil {
+					goto Found
+				}
+			}
+		}
+	Found:
 		s.Require().NoError(err, "should GetOrder(...) work without error")
 		s.Require().NotNil(retrievedOrder, "retrieved with GetOrder(...) should not be nil")
 		s.Require().Equal(order.OrderUID, retrievedOrder.OrderUID, "sent and got OrderUID should match")
@@ -98,7 +147,7 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 	})
 
 	s.Run("Successful httpServer retrieving", func() {
-		url := "http://localhost:" + s.cfg.AppPort + "/orders/" + order.OrderUID
+		url := "http://localhost:" + s.cfg.AppPort + "/api/v1/orders/" + order.OrderUID
 		resp, err := http.Get(url)
 		s.Require().NoError(err, "should fetch order through HTTP server without error")
 		defer func(Body io.ReadCloser) {
