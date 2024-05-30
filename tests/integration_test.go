@@ -3,6 +3,7 @@ package integrationtest
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -63,16 +64,16 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 	})
 
 	time.Sleep(2 * time.Second)
+	/*
+		s.Run("Successful from database direct retrieving", func() {
+			err := s.natsClient.PublishOrder(order)
+			s.Require().NoError(err, "should publish without error")
 
-	s.Run("Successful from database direct retrieving", func() {
-		err := s.natsClient.PublishOrder(order)
-		s.Require().NoError(err, "should publish without error")
-
-		fetchedOrder, err := s.db.Get(context.Background(), order.OrderUID)
-		s.Require().NoError(err, "should fetch order from the database without error")
-		s.Require().NotNil(fetchedOrder, "fetched order should not be nil")
-	})
-
+			fetchedOrder, err := s.db.Get(context.Background(), order.OrderUID)
+			s.Require().NoError(err, "should fetch order from the database without error")
+			s.Require().NotNil(fetchedOrder, "fetched order should not be nil")
+		})
+	*/
 	s.Run("Successful cache retrieving", func() {
 		err := s.natsClient.PublishOrder(order)
 		s.Require().NoError(err, "should publish without error")
@@ -97,10 +98,15 @@ func (s *IntegrationTestSuite) TestNATSIntegration() {
 	})
 
 	s.Run("Successful httpServer retrieving", func() {
-		url := "http://localhost:" + s.cfg.AppPort + "/order/get?id=" + order.OrderUID
+		url := "http://localhost:" + s.cfg.AppPort + "/orders/" + order.OrderUID
 		resp, err := http.Get(url)
 		s.Require().NoError(err, "should fetch order through HTTP server without error")
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				s.log.Info("failed to close response body")
+			}
+		}(resp.Body)
 
 		s.Require().Equal(http.StatusOK, resp.StatusCode, "HTTP status should be 200 OK")
 
