@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Storage) Get(ctx context.Context, orderUID string) (*models.Order, error) {
-	query := `
+	const query = `
 	SELECT
 		o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature, o.customer_id, 
 		o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
@@ -32,6 +32,7 @@ func (s *Storage) Get(ctx context.Context, orderUID string) (*models.Order, erro
 	GROUP BY
 		o.order_uid, d.delivery_id, p.payment_id
 	`
+
 	row := s.db.QueryRow(ctx, query, orderUID)
 
 	var order models.Order
@@ -48,7 +49,11 @@ func (s *Storage) Get(ctx context.Context, orderUID string) (*models.Order, erro
 		&order.Items,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch complete order details: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, models.ErrOrderNotFound
+		}
+
+		return nil, fmt.Errorf("storage.Get: row.Scan: %w", err)
 	}
 
 	return &order, nil
