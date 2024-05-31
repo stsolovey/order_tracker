@@ -2,7 +2,7 @@
 
 ## Overview
 
-The WB Tech Order Tracker Service is a Golang-based service designed to track and display order details using a JSON-based data model. The service leverages PostgreSQL for persistent storage, NATS JetStream for message streaming, and an in-memory cache for fast data retrieval. It also features a basic HTTP server to serve order data via a REST API.
+The Order Tracker Service is a Golang-based service designed to track and display order details using a JSON-based data model. The service leverages PostgreSQL for persistent storage, NATS JetStream for message streaming, and an in-memory cache for fast data retrieval. It also features a basic HTTP server to serve order data via a REST API.
 
 ### Features
 - **PostgreSQL Setup and Data Storage**: Persistent storage of order data.
@@ -11,7 +11,7 @@ The WB Tech Order Tracker Service is a Golang-based service designed to track an
 - **HTTP Server**: API for retrieving order data by ID.
 - **Publisher Script**: Script for publishing data to NATS for testing subscription.
 - **Automated Tests**: Unit and integration tests to ensure service reliability.
-- **Stress Testing**: Recommendations for using WRK and Vegeta tools for performance testing.
+- **Stress Testing**: WRK and Vegeta tools for performance testing.
 
 ## Project Structure
 
