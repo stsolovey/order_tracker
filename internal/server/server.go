@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/models"
@@ -92,7 +93,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func ConfigureRoutes(r chi.Router, orderService service.OrderServiceInterface, log *logrus.Logger) {
 	r.Route("/api/v1/orders", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "Missing order ID", http.StatusBadRequest)
+			writeJSONError(log, w, http.StatusBadRequest, "Missing order ID")
 		})
 		r.Get("/{uid}", func(w http.ResponseWriter, req *http.Request) {
 			getOrder(w, req, orderService, log)
@@ -103,7 +104,7 @@ func ConfigureRoutes(r chi.Router, orderService service.OrderServiceInterface, l
 func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceInterface, log *logrus.Logger) {
 	orderID := chi.URLParam(r, "uid")
 	if orderID == "" {
-		http.Error(w, "Order ID is required", http.StatusBadRequest)
+		writeJSONError(log, w, http.StatusBadRequest, "Order ID is required")
 
 		return
 	}
@@ -113,10 +114,12 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 	order, err := app.GetOrder(ctx, orderID)
 	if err != nil {
 		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			writeJSONError(log, w, http.StatusNotFound, "Order not found")
 		case errors.Is(err, models.ErrOrderNotFound):
-			http.Error(w, "Order not found", http.StatusNotFound)
+			writeJSONError(log, w, http.StatusNotFound, "Order not found")
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeJSONError(log, w, http.StatusInternalServerError, err.Error())
 		}
 
 		return
@@ -124,7 +127,7 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 
 	response, err := json.Marshal(order)
 	if err != nil {
-		http.Error(w, "Failed to serialize the order", http.StatusInternalServerError)
+		writeJSONError(log, w, http.StatusInternalServerError, "Failed to serialize the order")
 
 		return
 	}
@@ -134,5 +137,19 @@ func getOrder(w http.ResponseWriter, r *http.Request, app service.OrderServiceIn
 	_, err = w.Write(response)
 	if err != nil {
 		log.Infof("Failed to write response: %s", err)
+	}
+}
+
+func writeJSONError(log *logrus.Logger, w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	response := map[string]string{"error": message}
+
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Infof("Failed to write response: %s", err)
+
+		return
 	}
 }
