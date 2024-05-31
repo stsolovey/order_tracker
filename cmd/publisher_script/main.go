@@ -1,18 +1,20 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
 	"github.com/stsolovey/order_tracker/internal/config"
 	"github.com/stsolovey/order_tracker/internal/logger"
 	"github.com/stsolovey/order_tracker/internal/models"
+)
+
+const (
+	numOfOrdersToGenerate     = 100
+	numOfOrdersSlowGeneration = 10
 )
 
 func main() {
@@ -30,8 +32,8 @@ func main() {
 		log.WithError(err).Panic("Failed to get JetStream context")
 	}
 
-	for i := range 100 {
-		order := generateSampleOrder(log, i)
+	for i := range numOfOrdersToGenerate {
+		order := generateSampleOrder(i)
 
 		data, err := json.Marshal(order)
 		if err != nil {
@@ -44,23 +46,28 @@ func main() {
 		}
 
 		log.Infof("Published order '%s'", order.OrderUID)
-		time.Sleep(1 * time.Second)
+
+		if i < numOfOrdersSlowGeneration {
+			time.Sleep(1 * time.Second)
+		}
 	}
 }
 
-func generateSampleOrder(log *logrus.Logger, i int) models.Order {
+func generateSampleOrder(i int) models.Order {
 	orderUID := "orderUID" + strconv.Itoa(i)
 
 	const (
-		randomMax100000 = 100000
-		randomMax10000  = 10000
-		randomMax1000   = 1000
-		randomMax100    = 100
+		trackNumberMax       = 1000
+		transactionNumberMax = 1000
+		amountMax            = 10000
+		chrtIDMax            = 100000
+		priceMax             = 100
+		nmidMax              = 1000
 	)
 
 	return models.Order{
 		OrderUID:        orderUID,
-		TrackNumber:     fmt.Sprintf("TRACK_%d", secureRandomInt(log, randomMax1000)),
+		TrackNumber:     fmt.Sprintf("TRACK_%d", randInt(trackNumberMax)),
 		Entry:           "WBIL",
 		Locale:          "en",
 		CustomerID:      "test_customer",
@@ -75,30 +82,30 @@ func generateSampleOrder(log *logrus.Logger, i int) models.Order {
 		},
 		Payment: models.Payment{
 			OrderUID:    orderUID,
-			Transaction: fmt.Sprintf("TXN_%d", secureRandomInt(log, randomMax1000)),
+			Transaction: fmt.Sprintf("TXN_%d", randInt(transactionNumberMax)),
 			Currency:    "USD",
 			Provider:    "test_provider",
-			Amount:      float64(secureRandomInt(log, randomMax10000)),
+			Amount:      float64(randInt(amountMax)),
 			PaymentDT:   time.Now(),
 		},
 		Items: []models.Item{
 			{
 				OrderUID:    orderUID,
-				ChrtID:      secureRandomInt(log, randomMax100000),
-				TrackNumber: fmt.Sprintf("TRACK_%d", secureRandomInt(log, randomMax1000)),
-				Price:       float64(secureRandomInt(log, randomMax100)),
+				ChrtID:      randInt(chrtIDMax),
+				TrackNumber: fmt.Sprintf("TRACK_%d", randInt(trackNumberMax)),
+				Price:       float64(randInt(priceMax)),
 				Name:        "Test Item 1",
-				NMID:        secureRandomInt(log, randomMax1000),
+				NMID:        randInt(nmidMax),
 				Brand:       "TestBrand",
 				Status:      1,
 			},
 			{
 				OrderUID:    orderUID,
-				ChrtID:      secureRandomInt(log, randomMax100000),
-				TrackNumber: fmt.Sprintf("TRACK_%d", secureRandomInt(log, randomMax1000)),
-				Price:       float64(secureRandomInt(log, randomMax100)),
+				ChrtID:      randInt(chrtIDMax),
+				TrackNumber: fmt.Sprintf("TRACK_%d", randInt(trackNumberMax)),
+				Price:       float64(randInt(priceMax)),
 				Name:        "Test Item 2",
-				NMID:        secureRandomInt(log, randomMax1000),
+				NMID:        randInt(nmidMax),
 				Brand:       "TestBrand",
 				Status:      2, //nolint:mnd
 			},
@@ -106,13 +113,6 @@ func generateSampleOrder(log *logrus.Logger, i int) models.Order {
 	}
 }
 
-func secureRandomInt(log *logrus.Logger, max int) int {
-	var b [8]byte
-
-	_, err := rand.Read(b[:])
-	if err != nil {
-		log.WithError(err).Panic("Failed to generate secure random number")
-	}
-
-	return int(binary.BigEndian.Uint64(b[:]) % uint64(max))
+func randInt(max int) int {
+	return int(time.Now().UnixNano()) % max
 }
